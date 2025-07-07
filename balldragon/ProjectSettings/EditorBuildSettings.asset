@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1045 &1
+EditorBuildSettings:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Scenes:
+  - enabled: 0
+    path: Assets/Scenes/SampleScene.unity
+    guid: 9fc0d4010bbf28b4594072e72b8655ab
+  - enabled: 0
+    path: Assets/Samples/Meta MR Utility Kit/65.0.0/Basic/MRUKBase.unity
+    guid: 21549dbcb1294de4fafd68fca195dda5
+  - enabled: 0
+    path: Assets/Scenes/Base_Multimodal.unity
+    guid: 526d3b821f2a296438ff16f2f44534e0
+  - enabled: 0
+    path: Assets/Samples/Meta MR Utility Kit/65.0.0/Virtual Home/VirtualHome.unity
+    guid: 89c9f2977ebcf294fabcd8a4b23e6858
+  - enabled: 1
+    path: Assets/Scenes/Arduino_Tests.unity
+    guid: a8905bb1a90f3e242ae000c9777bad08
+  m_configObjects:
+    Unity.XR.Oculus.Settings: {fileID: 11400000, guid: 1caa95d114eacda40bdb3c0ca72185a0, type: 2}
+    com.unity.xr.management.loader_settings: {fileID: 11400000, guid: d25bf15f9c247fd46831100b3a2ec16b, type: 2}
