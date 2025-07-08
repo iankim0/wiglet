@@ -12,7 +12,7 @@ EditorBuildSettings:
     path: Assets/Samples/Meta MR Utility Kit/65.0.0/Basic/MRUKBase.unity
     guid: 21549dbcb1294de4fafd68fca195dda5
   - enabled: 0
-    path: Assets/Scenes/Base_Multimodal.unity
+    path: Assets/Scenes/Scene.unity
     guid: 526d3b821f2a296438ff16f2f44534e0
   - enabled: 0
     path: Assets/Samples/Meta MR Utility Kit/65.0.0/Virtual Home/VirtualHome.unity
