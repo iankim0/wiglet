@@ -39,8 +39,7 @@ public class Wiglet : MonoBehaviour {
  private OVRPassthroughLayer OVR_passthroughLayer;
 
  void OVR_Init() {
-  OVRInput.EnableSimultaneousHandsAndControllers();
-
+  OVRInput.EnableSimultaneousHandsAndControllers();;
   OVR_cameraRig = FindObjectOfType<OVRCameraRig>();
   OVR_manager = OVR_cameraRig.GetComponent<OVRManager>();
   OVR_passthroughLayer = OVR_cameraRig.GetComponent<OVRPassthroughLayer>();
@@ -59,7 +58,7 @@ public class Wiglet : MonoBehaviour {
   OVR_Init();
 
   robot = GameObject.CreatePrimitive(PrimitiveType.Cube);
-  robot.name = "Robot";
+  robot.name = "Wobot";
   robot.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
  }
 

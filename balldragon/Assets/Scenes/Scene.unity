@@ -1675,6 +1675,10 @@ PrefabInstance:
       propertyPath: m_Layer
       value: 8
       objectReference: {fileID: 0}
+    - target: {fileID: 112276, guid: d9809c5e8418bb047bf2c8ba1d1a2cec, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 488160, guid: d9809c5e8418bb047bf2c8ba1d1a2cec, type: 3}
       propertyPath: m_RootOrder
       value: 0
@@ -3125,6 +3129,10 @@ PrefabInstance:
       propertyPath: m_Layer
       value: 8
       objectReference: {fileID: 0}
+    - target: {fileID: 112276, guid: 9e93b53535e47cc439b56765293bd434, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 488160, guid: 9e93b53535e47cc439b56765293bd434, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -3758,6 +3766,6 @@ SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 1254712653}
+  - {fileID: 1634560939}
   - {fileID: 1745996862}
   - {fileID: 230430666}
-  - {fileID: 1634560939}
