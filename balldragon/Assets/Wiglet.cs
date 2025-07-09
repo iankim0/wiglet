@@ -13,9 +13,14 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO.Ports;
 using System.Linq;
+using System.Runtime.InteropServices;
+
 
 public class Wiglet : MonoBehaviour {
  
+ [DllImport("plugin")]
+ static extern int add(int a, int b);
+
  void ASSERT(bool condition) {
   if (!condition) {
    Debug.Log("ASSERT failed.");
@@ -38,7 +43,7 @@ public class Wiglet : MonoBehaviour {
   return(0.5f - 0.5f * Mathf.Cos(x));
  }
 
- private bool DISABLE_VR = true;
+ private bool DISABLE_VR = false;
  private OVRCameraRig OVR_cameraRig;
  private OVRManager OVR_manager;
  private OVRPassthroughLayer OVR_passthroughLayer;
@@ -79,6 +84,7 @@ public class Wiglet : MonoBehaviour {
 
  bool initialized;  
  private void Awake() {
+  Debug.Log(add(3, 3));
   initialized = false;
 
   var allObjects = Resources.FindObjectsOfTypeAll<GameObject>();

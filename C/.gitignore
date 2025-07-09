@@ -1,0 +1,50 @@
+# Object files
+*.o
+*.obj
+
+
+*.exp
+
+# Executables
+*.exe
+*.out
+
+# Static and dynamic libraries
+*.a
+*.lib
+*.dll
+*.so
+*.pdb
+
+# Build directories
+/build/
+/bin/
+/debug/
+/release/
+
+# Dependency and intermediate files
+*.d
+*.map
+*.ilk
+*.idb
+
+# Visual Studio / MSVC files
+*.vcxproj*
+*.sln
+*.user
+*.aps
+*.ncb
+*.opendb
+*.tlog
+*.log
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# Other OS-generated files
+.DS_Store
+Thumbs.db
+desktop.ini
