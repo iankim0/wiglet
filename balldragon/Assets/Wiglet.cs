@@ -63,6 +63,13 @@ public class Wiglet : MonoBehaviour {
   serialPort.Open(); 
  }
 
+ public GameObject floorManager;
+ void FloorSpawner_Init() {
+   FloorSpawner floorSpawner = floorManager.GetComponent<FloorSpawner>();
+   floorSpawner.groundLevel = 0f;
+   floorSpawner.objects.Add(robot.transform);
+ }
+
  private GameObject robot;
  void Robot_Init() {
   robot = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -81,10 +88,15 @@ public class Wiglet : MonoBehaviour {
   OVR_Init();
   SerialPort_Init();
   Robot_Init();
+  FloorSpawner_Init();
+  
  }
 
  [SerializeField] int phase;
  public void Update() {
+
+  //floorManager.SetActive(true);
+
   bool A_Pressed;
   bool B_Pressed;
   bool X_Pressed;
@@ -136,9 +148,6 @@ public class Wiglet : MonoBehaviour {
   }
 
 
-
-
-
   bool reset = (!initialized || LeftThumbstick_Pressed);
   if (reset) { // reset
    initialized = true;
@@ -147,7 +156,15 @@ public class Wiglet : MonoBehaviour {
 
   int _phase = 0;
   Func<bool> PHASE = () => { return(phase == _phase++); };
-  Func<bool> NEXT = () => { bool result = X_Pressed; if (result) ++phase; return(result); };// NOTE: phase captured by reference
+  Func<bool> NEXT = () => {
+   bool result = X_Pressed;
+   if (result) {
+   ++phase;
+   Byte[] tmp = { 0 };
+   serialPort.Write(tmp, 0, 1);
+   }
+   return(result);
+  };// NOTE: phase captured by reference
   if (false) {
   } else if (PHASE()) { // prep
    if (DISABLE_VR) {
@@ -156,7 +173,7 @@ public class Wiglet : MonoBehaviour {
     robot.transform.localPosition = (LeftRay.origin + (0.08f * LeftRay.direction));
    }
    if (NEXT()) {
-    ;
+    
    }
   } else if (PHASE()) { // hot
    // FORNOW
@@ -164,11 +181,12 @@ public class Wiglet : MonoBehaviour {
    robot.transform.Rotate(0, (1.5f * MagicZeroCenteredDeadBand(LeftThumb.x, 0.4f)), 0);
   
   if (NEXT()) {
-    ;
+
    }
   } else if (PHASE()) { // live
    robot.transform.Rotate(2.0f, 1.0f, 0);
    if (NEXT()) {
+
     initialized = false;
    }
   }

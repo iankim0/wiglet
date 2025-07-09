@@ -2,22 +2,44 @@
 #include <Wire.h>
 #include <Servo.h>
 
+void Serial_clear() {
+  while (Serial.available()) {
+    Serial.read();
+  }
+}
+
+const int ledPin = 13;
+
 void setup() {
   Serial.begin(115200);
+  pinMode(ledPin, OUTPUT);
 }
 
 int frame;
-void loop() {
- Serial.println(frame);
- frame++;
- frame++;
- frame++;
- delay(17); // FORNOW
-}
+int phaseCooldownTimer;
 
-void readSerial() {
-  // if (Serial.available()) {
-    // String unityData = Serial.readStringUntil('\n');
-    // ... = unityData.toFloat(); //float between 0 and 1
-  // }
+int unityPhase = 0;
+void loop() {
+  delay(17); // FORNOW
+
+  // send
+  Serial.println(frame);
+
+  // receive
+  if (Serial.available()) {
+    Serial_clear();
+    phaseCooldownTimer = 10;
+  }
+
+  // updates
+  frame++;
+  if (phaseCooldownTimer > 0) {
+    digitalWrite(ledPin, HIGH);
+    --phaseCooldownTimer;
+  } else {
+    digitalWrite(ledPin, LOW);
+  }
+ 
+
+
 }
