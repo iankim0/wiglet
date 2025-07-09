@@ -4,15 +4,17 @@ Enter Play Mode Settings: In Unity's editor settings, you can disable domain rel
 Considerations: Disabling domain reloading means you'll need to manually reset your game state if needed, as Unity won't do it automatically. You'll also need to design your code to handle static variables and other state-related issues that arise from disabling the reload. 
 */
      
-using System.Collections;
-using System.Collections.Generic;
+
 using UnityEngine;
 using UnityEngine.Diagnostics;
 using UnityEditor;
 using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO.Ports;
+using System.Linq;
 
 public class Wiglet : MonoBehaviour {
- 
  
  void ASSERT(bool condition) {
   if (!condition) {
@@ -32,62 +34,110 @@ public class Wiglet : MonoBehaviour {
   return(result);
  }
 
+ float MCos01(float x) {
+  return(0.5f - 0.5f * Mathf.Cos(x));
+ }
 
-
+ private bool DISABLE_VR = true;
  private OVRCameraRig OVR_cameraRig;
  private OVRManager OVR_manager;
  private OVRPassthroughLayer OVR_passthroughLayer;
-
  void OVR_Init() {
-  OVRInput.EnableSimultaneousHandsAndControllers();;
-  OVR_cameraRig = FindObjectOfType<OVRCameraRig>();
-  OVR_manager = OVR_cameraRig.GetComponent<OVRManager>();
-  OVR_passthroughLayer = OVR_cameraRig.GetComponent<OVRPassthroughLayer>();
+  if (!DISABLE_VR) {
+   OVRInput.EnableSimultaneousHandsAndControllers();;
+   OVR_cameraRig = FindObjectOfType<OVRCameraRig>();
+   OVR_manager = OVR_cameraRig.GetComponent<OVRManager>();
+   OVR_passthroughLayer = OVR_cameraRig.GetComponent<OVRPassthroughLayer>();
+  }
  }
-
- void togglePassThrough() {
-  OVR_passthroughLayer.enabled = !OVR_passthroughLayer.enabled;
+ void OVR_togglePassThrough() {
+  if (!DISABLE_VR) {
+   OVR_passthroughLayer.enabled = !OVR_passthroughLayer.enabled;
+  }
  } 
 
+ private SerialPort serialPort;
+ void SerialPort_Init() {
+  // TODO (Jim): scan serial ports
+  serialPort = new SerialPort("COM11", 115200);
+  serialPort.Open(); 
+ }
+
  private GameObject robot;
-
- bool initialized;  
- private void Awake() {
-  initialized = false;
-
-  OVR_Init();
-
+ void Robot_Init() {
   robot = GameObject.CreatePrimitive(PrimitiveType.Cube);
   robot.name = "Wobot";
   robot.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
  }
 
+ bool initialized;  
+ private void Awake() {
+  initialized = false;
+
+  var allObjects = Resources.FindObjectsOfTypeAll<GameObject>();
+  allObjects.FirstOrDefault(obj => obj.name == "OVRCameraRig").SetActive(!DISABLE_VR);
+  allObjects.FirstOrDefault(obj => obj.name == "Camera").SetActive(DISABLE_VR);
+
+  OVR_Init();
+  SerialPort_Init();
+  Robot_Init();
+ }
+
  [SerializeField] int phase;
  public void Update() {
-
-  bool A_Pressed               = (Input.GetKeyDown(KeyCode.A)) || OVRInput.GetDown(OVRInput.RawButton.A);
-  bool B_Pressed               = (Input.GetKeyDown(KeyCode.B)) || OVRInput.GetDown(OVRInput.RawButton.B);
-  bool X_Pressed               = (Input.GetKeyDown(KeyCode.X)) || OVRInput.GetDown(OVRInput.RawButton.X);
-  bool Y_Pressed               = (Input.GetKeyDown(KeyCode.Y)) || OVRInput.GetDown(OVRInput.RawButton.Y);
-  bool LeftThumbstick_Pressed  = OVRInput.GetDown(OVRInput.Button.PrimaryThumbstick);
-  bool RightThumbstick_Pressed = OVRInput.GetDown(OVRInput.Button.SecondaryThumbstick);
-  Ray LeftRay; {
-   Vector3 rayOrigin;
-   Vector3 rayDirection;
-   // if ((OVRInput.activeControllerType & OVRInput.Controller.LTouch) == OVRInput.Controller.LTouch) {
-    rayOrigin = OVR_cameraRig.leftControllerInHandAnchor.position;
-    rayDirection = OVR_cameraRig.leftControllerInHandAnchor.forward;
-   // } else {
-   // rayOrigin = leftGesture.indexTip;
-   // rayDirection = leftHand.PointerPose.forward;
-   // }
-   LeftRay = new Ray(rayOrigin, rayDirection);
+  bool A_Pressed;
+  bool B_Pressed;
+  bool X_Pressed;
+  bool Y_Pressed;
+  bool LeftThumbstick_Pressed;
+  bool RightThumbstick_Pressed;
+  Ray LeftRay;
+  Vector2 LeftThumb;
+  if (DISABLE_VR) {
+   A_Pressed = Input.GetKeyDown(KeyCode.A);
+   B_Pressed = Input.GetKeyDown(KeyCode.B);
+   X_Pressed = Input.GetKeyDown(KeyCode.X);
+   Y_Pressed = Input.GetKeyDown(KeyCode.Y);
+   LeftThumbstick_Pressed  = false;
+   RightThumbstick_Pressed = false;
+   LeftRay = new Ray(new Vector3(), new Vector3());
+   LeftThumb = new Vector3();
+  } else {
+   A_Pressed = (Input.GetKeyDown(KeyCode.A)) || OVRInput.GetDown(OVRInput.RawButton.A);
+   B_Pressed = (Input.GetKeyDown(KeyCode.B)) || OVRInput.GetDown(OVRInput.RawButton.B);
+   X_Pressed = (Input.GetKeyDown(KeyCode.X)) || OVRInput.GetDown(OVRInput.RawButton.X);
+   Y_Pressed = (Input.GetKeyDown(KeyCode.Y)) || OVRInput.GetDown(OVRInput.RawButton.Y);
+   LeftThumbstick_Pressed  = OVRInput.GetDown(OVRInput.Button.PrimaryThumbstick);
+   RightThumbstick_Pressed = OVRInput.GetDown(OVRInput.Button.SecondaryThumbstick);
+   { // LeftRay
+    Vector3 rayOrigin;
+    Vector3 rayDirection;
+    // if ((OVRInput.activeControllerType & OVRInput.Controller.LTouch) == OVRInput.Controller.LTouch) {
+     rayOrigin = OVR_cameraRig.leftControllerInHandAnchor.position;
+     rayDirection = OVR_cameraRig.leftControllerInHandAnchor.forward;
+    // } else {
+    // rayOrigin = leftGesture.indexTip;
+    // rayDirection = leftHand.PointerPose.forward;
+    // }
+    LeftRay = new Ray(rayOrigin, rayDirection);
+   }
+   LeftThumb = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick);
   }
-  Vector2 LeftThumb = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick);
 
   if (Y_Pressed) {
-   togglePassThrough();
+   OVR_togglePassThrough();
   }
+
+
+  if (serialPort.BytesToRead != 0) {
+   int int_from_arduino = int.Parse(serialPort.ReadLine());
+   float a = 0.1f + MCos01(int_from_arduino / 60.0f) * 0.1f;
+   robot.transform.localScale = new Vector3(a, a, a);
+  }
+
+
+
+
 
   bool reset = (!initialized || LeftThumbstick_Pressed);
   if (reset) { // reset
@@ -100,7 +150,11 @@ public class Wiglet : MonoBehaviour {
   Func<bool> NEXT = () => { bool result = X_Pressed; if (result) ++phase; return(result); };// NOTE: phase captured by reference
   if (false) {
   } else if (PHASE()) { // prep
-   robot.transform.position = (LeftRay.origin + (0.08f * LeftRay.direction));
+   if (DISABLE_VR) {
+    robot.transform.localPosition = new Vector3(0.0f, (0.5f * robot.transform.localScale.y), 0.0f);
+   } else {
+    robot.transform.localPosition = (LeftRay.origin + (0.08f * LeftRay.direction));
+   }
    if (NEXT()) {
     ;
    }
