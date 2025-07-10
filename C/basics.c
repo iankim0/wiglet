@@ -4,6 +4,8 @@
 
 #pragma comment(lib, "user32.lib")
 #pragma comment(lib, "kernel32.lib")
+#pragma comment(lib, "gdi32.lib")
+
 #include <windows.h>
 
 #include <stdint.h>
@@ -11,6 +13,7 @@ typedef uint8_t u8;
 typedef uint32_t u32;
 
 #include <stdbool.h>
+#include <stdlib.h>
 
 // FORNOW: Sleep
 #define assert(condition) \
