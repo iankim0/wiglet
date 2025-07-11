@@ -1,9 +1,6 @@
 #include "basics.c"
 #include "serial.c"
 
-HANDLE handle;
-//HBRUSH brush;
-
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     LRESULT result = 0;
     if (0) {
@@ -12,7 +9,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         } else if (wParam == 'Q' || wParam == VK_ESCAPE) {
             PostQuitMessage(0);
         } else if (wParam == ' ') {
-            serial_write_byte(handle, 'A');
+            serial_write_byte('A');
         }
     } else if (msg == WM_DESTROY) {
         PostQuitMessage(0);
@@ -25,7 +22,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
     AllocConsole();
     SetConsoleTitle("Console");
-
+    int count = 0;
     //brush = CreateSolidBrush(RGB(0, 0, 0));
 
     HWND hwnd;
@@ -48,15 +45,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     }
 
-    handle = serial_open("COM11", 115200);
-    int red;
-    int green;
-    int blue;
-
-    // TODO (Students): receive byte from teensy (maybe when pressing a button?)
-    //                  (could change window background color to show button has been received)
-    // NOTE: Will need to solder up the teensy; will need to get bread board and button from the fun wagon
-    // TODO (Students): get the knob going and swirl the background color through the rainbow of your dreams
+    serial_open("COM11", 115200);
+    u8 encoderPosition;
 
     MSG msg;
     while (1) {
@@ -65,22 +55,20 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
-
-        if (serial_num_bytes_ready_to_read(handle)) {
+        
+        if (serial_num_bytes_ready_to_read()) {
+            //NOTE: input must be raw bit representation
+            encoderPosition = serial_read_byte();
+            printf("%d\n", encoderPosition);
             while (serial_num_bytes_ready_to_read(handle)) {
                 serial_read_byte(handle);
             }
-            //brush = CreateSolidBrush(RGB(rand() % 255, rand() % 255, rand() % 255));
-            //printf("%c", serial_read_byte(handle));
+
             HDC hdc = GetDC(hwnd);
             RECT rc; GetClientRect(hwnd, &rc); 
-            red = rand() % 255;
-            green = rand() % 255;
-            blue = rand() % 255;
-            printf("red: %d, green: %d, blue: %d\n", red, green, blue);
-            HBRUSH brush = CreateSolidBrush(RGB(red, green, blue));
+            HBRUSH brush = CreateSolidBrush(RGB(225, 150, encoderPosition));
             FillRect(hdc, &rc, brush); 
-            DeleteObject(brush); // Free the created brush: see note below!
+            DeleteObject(brush);
         }
 
     }
