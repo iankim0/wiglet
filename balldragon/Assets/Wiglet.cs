@@ -11,15 +11,17 @@ using UnityEditor;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
+using System.IO.Pipes;
 using System.IO.Ports;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading;
+using Microsoft.Win32.SafeHandles;
+
 
 
 public class Wiglet : MonoBehaviour {
- 
- [DllImport("plugin")]
- static extern int add(int a, int b);
 
  void ASSERT(bool condition) {
   if (!condition) {
@@ -43,7 +45,7 @@ public class Wiglet : MonoBehaviour {
   return(0.5f - 0.5f * Mathf.Cos(x));
  }
 
- private bool DISABLE_VR = false;
+ private bool DISABLE_VR = true;
  private OVRCameraRig OVR_cameraRig;
  private OVRManager OVR_manager;
  private OVRPassthroughLayer OVR_passthroughLayer;
@@ -64,15 +66,8 @@ public class Wiglet : MonoBehaviour {
  private SerialPort serialPort;
  void SerialPort_Init() {
   // TODO (Jim): scan serial ports
-  serialPort = new SerialPort("COM11", 115200);
+  serialPort = new SerialPort("COM12", 115200);
   serialPort.Open(); 
- }
-
- public GameObject floorManager;
- void FloorSpawner_Init() {
-   FloorSpawner floorSpawner = floorManager.GetComponent<FloorSpawner>();
-   floorSpawner.groundLevel = 0f;
-   floorSpawner.objects.Add(robot.transform);
  }
 
  private GameObject robot;
@@ -82,9 +77,17 @@ public class Wiglet : MonoBehaviour {
   robot.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
  }
 
- bool initialized;  
+NamedPipeClientStream pipe;
+void Pipe_Init() {
+  pipe = new NamedPipeClientStream(".", "UnityPipe", PipeDirection.InOut);
+  pipe.Connect();
+}
+[DllImport("kernel32.dll", SetLastError = true)]
+static extern bool PeekNamedPipe(SafePipeHandle handle, byte[] buffer, uint nBufferSize, ref uint bytesRead, ref uint bytesAvail, ref uint bytesLeft);
+int byte_for_C = 0;
+
+ bool initialized;
  private void Awake() {
-  Debug.Log(add(3, 3));
   initialized = false;
 
   var allObjects = Resources.FindObjectsOfTypeAll<GameObject>();
@@ -92,17 +95,13 @@ public class Wiglet : MonoBehaviour {
   allObjects.FirstOrDefault(obj => obj.name == "Camera").SetActive(DISABLE_VR);
 
   OVR_Init();
-  SerialPort_Init();
-  Robot_Init();
-  FloorSpawner_Init();
-  
+  // SerialPort_Init();
+  Robot_Init();  
+  Pipe_Init();
  }
 
  [SerializeField] int phase;
  public void Update() {
-
-  //floorManager.SetActive(true);
-
   bool A_Pressed;
   bool B_Pressed;
   bool X_Pressed;
@@ -147,11 +146,21 @@ public class Wiglet : MonoBehaviour {
   }
 
 
-  if (serialPort.BytesToRead != 0) {
-   int int_from_arduino = int.Parse(serialPort.ReadLine());
-   float a = 0.1f + MCos01(int_from_arduino / 60.0f) * 0.1f;
-   robot.transform.localScale = new Vector3(a, a, a);
+  // pipe
+  {
+    uint avail = 0, bytesRead = 0, bytesLeft = 0;
+    if (PeekNamedPipe(pipe.SafePipeHandle, null, 0, ref bytesRead, ref avail, ref bytesLeft) && avail > 0) {
+        int b = pipe.ReadByte();
+        Debug.Log("From C: " + (char) b);
+    }
   }
+  
+  if (Input.GetKeyDown(KeyCode.C)) {
+      pipe.WriteByte((byte) byte_for_C);
+      byte_for_C += 10;
+  }
+
+
 
 
   bool reset = (!initialized || LeftThumbstick_Pressed);

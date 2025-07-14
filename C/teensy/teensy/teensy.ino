@@ -22,6 +22,9 @@ void Serial_clear() {
 #define ASSERT(condition) \
   do { \
     if (!(condition)) { \
+      display.setTextSize(8); \
+      display.setTextColor(WHITE); \
+      display.setCursor(0, 5); \
       display.printf("%d", __LINE__);  \
       display.display(); \
       while(true) { \
@@ -75,8 +78,10 @@ void setup() {
   display.setTextSize(8);
   display.setTextColor(WHITE);
   display.setCursor(0, 5);
+  display.printf(":D");
+  display.display();
 
-  ASSERT(2 + 2 == 5);
+//  ASSERT(2 + 2 == 5);
 
   ASSERT(ss.begin(SEESAW_ADDR));
   ASSERT(((ss.getVersion() >> 16) & 0xFFFF)  == 4991);
@@ -92,8 +97,6 @@ void loop() {
     Serial_clear();
     LED_cooldown_timer = 100;
   }
-
-
 
   // // send
 

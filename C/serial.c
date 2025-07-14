@@ -1,11 +1,16 @@
-HANDLE handle;
-
-void serial_open(const char *COMXX, int baud_rate) {
+HANDLE serial_open(const char *COMXX, int baud_rate) {
     char full_port_name[20];
     snprintf(full_port_name, sizeof(full_port_name), "\\\\.\\%s", COMXX);
 
-    handle = CreateFileA(full_port_name, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
-    assert(handle != INVALID_HANDLE_VALUE);
+    HANDLE handle = CreateFileA(
+        full_port_name,
+        GENERIC_READ | GENERIC_WRITE,
+        0,
+        NULL,
+        OPEN_EXISTING,
+        0,
+        NULL);
+    assert(handle != INVALID_HANDLE_VALUE );
 
     DCB dcb = {0};
     dcb.DCBlength = sizeof(dcb); // TODO: wtf
@@ -24,21 +29,22 @@ void serial_open(const char *COMXX, int baud_rate) {
     timeouts.WriteTotalTimeoutConstant = 10;
     timeouts.WriteTotalTimeoutMultiplier = 1;
     assert(SetCommTimeouts(handle, &timeouts));
+    return(handle);
 }
 
-void serial_close() {
+void serial_close(HANDLE handle) {
     assert(handle != INVALID_HANDLE_VALUE);
     CloseHandle(handle);
 }
 
-void serial_write_byte(u8 byte) {
+void serial_write_byte(HANDLE handle, u8 byte) {
     assert(handle != INVALID_HANDLE_VALUE);
     u32 bytes_written;
     WriteFile(handle, &byte, 1, &bytes_written, NULL);
     assert(bytes_written == 1);
 }
 
-u8 serial_read_byte() {
+u8 serial_read_byte(HANDLE handle) {
     assert(handle != INVALID_HANDLE_VALUE);
     u8 byte;
     u32 bytes_read;
@@ -47,7 +53,7 @@ u8 serial_read_byte() {
     return(byte);
 }
 
-int serial_num_bytes_ready_to_read() {
+int serial_num_bytes_ready_to_read(HANDLE handle) {
     assert(handle != INVALID_HANDLE_VALUE);
     u32 errors;
     COMSTAT status;
