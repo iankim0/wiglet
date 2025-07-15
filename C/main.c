@@ -1,9 +1,13 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include "basics.c"
 #include "serial.c"
 #include "pipe.c"
+#include <math.h>
 
 HANDLE teensyHandle;
 HANDLE unityHandle;
+bool usingUnity = true; 
+float angle;
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     LRESULT result = 0;
@@ -14,9 +18,22 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             PostQuitMessage(0);
         } else if (wParam == 'T') {
             serial_write_byte(teensyHandle, 'A');
-        } else if (wParam == 'U') {
+        } else if (wParam == 'U' && usingUnity) {
             serial_write_byte(unityHandle, 'A');
         }
+    } else if (msg == WM_PAINT) {
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hwnd, &ps);
+        HPEN pen = CreatePen(PS_SOLID, 5, RGB(102,203,214)); 
+        SelectObject(hdc, pen);
+        MoveToEx(hdc, 250, 250, NULL);
+
+        int xEnd = 250 + (int) (50 * cosf(angle));
+        int yEnd = 250 - (int) (50 * sinf(angle));
+        LineTo(hdc, xEnd, yEnd);
+
+        DeleteObject(pen);
+        EndPaint(hwnd, &ps);
     } else if (msg == WM_DESTROY) {
         PostQuitMessage(0);
     } else {
@@ -26,6 +43,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+    UNREFERENCED_PARAMETER(hPrevInstance);
     AllocConsole();
     SetConsoleTitle("Console");
 
@@ -49,10 +67,20 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     }
 
-    teensyHandle = serial_open("COM11", 115200);
-    unityHandle = pipe_open("UnityPipe");
+    char* token = strtok(lpCmdLine, " ");
+    while (token != NULL) {
+        if (strcmp(token, "--no-unity") == 0) {
+            usingUnity = false;
+            printf("Unity Deactivated");
+        }
+        token = strtok(NULL, " ");
+    }
 
-    u8 encoderPosition;
+    teensyHandle = serial_open("COM11", 115200);
+    if (usingUnity) {
+        unityHandle = pipe_open("UnityPipe");
+    }
+
     MSG msg;
     while (1) {
         while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
@@ -63,31 +91,29 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         
         if (serial_num_bytes_ready_to_read(teensyHandle)) {
             //NOTE: input must be raw bit representation
-            encoderPosition = serial_read_byte(teensyHandle);
-
-            // TODO: Purge ???
+            // FORNOW
+            u8 encoderPosition = 0;
             while (serial_num_bytes_ready_to_read(teensyHandle)) {
-                serial_read_byte(teensyHandle);
+                encoderPosition = serial_read_byte(teensyHandle);
             }
 
-            HDC hdc = GetDC(hwnd);
-            RECT rc; GetClientRect(hwnd, &rc); 
-            HBRUSH brush = CreateSolidBrush(RGB(225, 150, encoderPosition));
-            FillRect(hdc, &rc, brush); 
-            DeleteObject(brush);
+            angle = (encoderPosition / 12.0f) * 3.14f; // Converting to radians
+            InvalidateRect(hwnd, NULL, true);
         }
 
-        if (pipe_num_bytes_ready_to_read(unityHandle)) {
-            //NOTE: input must be raw bit representation
-            u8 byte_from_Unity = pipe_read_byte(unityHandle);
+        if (usingUnity) {
+            if (pipe_num_bytes_ready_to_read(unityHandle)) {
+                //NOTE: input must be raw bit representation
+                u8 byte_from_Unity = pipe_read_byte(unityHandle);
 
-            // TODO: Purge???
+                // TODO: Purge???
 
-            HDC hdc = GetDC(hwnd);
-            RECT rc; GetClientRect(hwnd, &rc); 
-            HBRUSH brush = CreateSolidBrush(RGB(byte_from_Unity, 0, 0));
-            FillRect(hdc, &rc, brush); 
-            DeleteObject(brush);
+                HDC hdc = GetDC(hwnd);
+                RECT rc; GetClientRect(hwnd, &rc); 
+                HBRUSH brush = CreateSolidBrush(RGB(byte_from_Unity, 0, 0));
+                FillRect(hdc, &rc, brush); 
+                DeleteObject(brush);
+            }
         }
 
     }

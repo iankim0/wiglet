@@ -24,8 +24,7 @@ void Serial_clear() {
     if (!(condition)) { \
       display.setTextSize(8); \
       display.setTextColor(WHITE); \
-      display.setCursor(0, 5); \
-      display.printf("%d", __LINE__);  \
+      display.printf("%s", __DATE__);  \
       display.display(); \
       while(true) { \
       } \
@@ -39,7 +38,7 @@ void Serial_clear() {
 #define SS_SWITCH   24
 #define SEESAW_ADDR 0x36
 Adafruit_seesaw ss;
-int32_t encoder_position;
+uint8_t encoder_position;
 float maxEncoderPos = 50;
 float minEncoderPos = -50;
 
@@ -75,10 +74,11 @@ void setup() {
     }
   }
   display.clearDisplay();
-  display.setTextSize(8);
+  display.setTextSize(2);
   display.setTextColor(WHITE);
-  display.setCursor(0, 5);
-  display.printf(":D");
+  char *tmp = __DATE__;
+  tmp[strlen(tmp) - 4] = '\0';
+  display.printf("%s\n%s", __DATE__, __TIME__);  \
   display.display();
 
 //  ASSERT(2 + 2 == 5);
@@ -88,6 +88,11 @@ void setup() {
   ss.pinMode(SS_SWITCH, INPUT_PULLUP);
   ss.setGPIOInterrupts((uint32_t)1 << SS_SWITCH, 1);
   ss.enableEncoderInterrupt();
+}
+
+int MODULO(int a, int b) {
+    int r = a % b;
+    return r < 0 ? r + b : r;
 }
 
 void loop() {
@@ -101,20 +106,11 @@ void loop() {
   // // send
 
   //get and clamp encoder position
-  int32_t new_position = ss.getEncoderPosition();
+  uint8_t new_position = MODULO(ss.getEncoderPosition(), 24);
 
-  //clamp
-  if (new_position < minEncoderPos) {
-    ss.setEncoderPosition(minEncoderPos);
-    new_position = minEncoderPos;
-  } else if (new_position > maxEncoderPos) {
-    ss.setEncoderPosition(maxEncoderPos);
-    new_position = maxEncoderPos;
-  }
 
   if (encoder_position != new_position) {
-    float t = inverseLerp(minEncoderPos, maxEncoderPos, new_position);
-    Serial.write(lerp(0, 255, t));         // display new position
+    Serial.write(new_position);         // display new position
     encoder_position = new_position;      // and save for next round
   }
 

@@ -15,25 +15,13 @@ HANDLE pipe_open(const char *PipeName) {
     return(handle);
 }
 
-void pipe_write_byte(HANDLE handle, u8 byte) {
-    assert(handle != INVALID_HANDLE_VALUE);
-    u32 bytes_written;
-    WriteFile(handle, &byte, 1, &bytes_written, NULL);
-    assert(bytes_written == 1);
-}
+#define pipe_write_byte serial_write_byte
 
-u8 pipe_read_byte(HANDLE handle) {
-    assert(handle != INVALID_HANDLE_VALUE);
-    u8 byte;
-    u32 bytes_read;
-    ReadFile(handle, &byte, 1, &bytes_read, NULL);
-    assert(bytes_read == 1);
-    return(byte);
-}
+#define pipe_read_byte serial_read_byte
 
 int pipe_num_bytes_ready_to_read(HANDLE handle) {
     assert(handle != INVALID_HANDLE_VALUE);
-    u32 avail;
+    DWORD avail;
     PeekNamedPipe(handle, NULL, 0, NULL, &avail, NULL);
     return(avail);
 }

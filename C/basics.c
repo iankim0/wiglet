@@ -8,9 +8,11 @@
 
 #include <windows.h>
 
+
 #include <stdint.h>
 typedef uint8_t u8;
 typedef uint32_t u32;
+typedef uint64_t u64;
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -32,8 +34,8 @@ int printf(const char *format, ...) {
     vsprintf(buffer, format, args);
     va_end(args);
 
-    u32 length = strlen(buffer);
-    u32 written;
+    DWORD length = (DWORD) strlen(buffer);
+    DWORD written;
     WriteConsole(GetStdHandle(STD_OUTPUT_HANDLE), buffer, length, &written, NULL);
     assert(written == length);
 

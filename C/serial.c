@@ -39,7 +39,7 @@ void serial_close(HANDLE handle) {
 
 void serial_write_byte(HANDLE handle, u8 byte) {
     assert(handle != INVALID_HANDLE_VALUE);
-    u32 bytes_written;
+    DWORD bytes_written;
     WriteFile(handle, &byte, 1, &bytes_written, NULL);
     assert(bytes_written == 1);
 }
@@ -47,7 +47,7 @@ void serial_write_byte(HANDLE handle, u8 byte) {
 u8 serial_read_byte(HANDLE handle) {
     assert(handle != INVALID_HANDLE_VALUE);
     u8 byte;
-    u32 bytes_read;
+    DWORD bytes_read;
     ReadFile(handle, &byte, 1, &bytes_read, NULL);
     assert(bytes_read == 1);
     return(byte);
@@ -55,7 +55,7 @@ u8 serial_read_byte(HANDLE handle) {
 
 int serial_num_bytes_ready_to_read(HANDLE handle) {
     assert(handle != INVALID_HANDLE_VALUE);
-    u32 errors;
+    DWORD errors;
     COMSTAT status;
     assert(ClearCommError(handle, &errors, &status));
     return((int) status.cbInQue);

@@ -1,0 +1,1 @@
+cls & del /F /Q main.exe & cl /W4 /WX main.c & main.exe --no-unity
