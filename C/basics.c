@@ -13,6 +13,7 @@
 typedef uint8_t u8;
 typedef uint32_t u32;
 typedef uint64_t u64;
+typedef float f32;
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -21,8 +22,8 @@ typedef uint64_t u64;
 #define assert(condition) \
     do { \
         if (!(condition)) { \
-            printf("assert(" #condition "); failed // line %d\n", __LINE__); \
-            Sleep(1000); \
+            printf("assert(" #condition "); failed // line %d of %s\n", __LINE__, __FILE__); \
+            Sleep(2000); \
             char *ptr = NULL; *ptr = 0; \
         } \
     } while (0) 

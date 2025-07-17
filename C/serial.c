@@ -44,16 +44,28 @@ void serial_write_byte(HANDLE handle, u8 byte) {
     assert(bytes_written == 1);
 }
 
-u8 serial_read_byte(HANDLE handle) {
+void serial_read_byte(HANDLE handle, u8 *byte) {
     assert(handle != INVALID_HANDLE_VALUE);
-    u8 byte;
     DWORD bytes_read;
-    ReadFile(handle, &byte, 1, &bytes_read, NULL);
+    ReadFile(handle, byte, 1, &bytes_read, NULL);
     assert(bytes_read == 1);
-    return(byte);
 }
 
-int serial_num_bytes_ready_to_read(HANDLE handle) {
+void serial_write_n_bytes(HANDLE handle, u32 n, void *src) {
+    assert(handle != INVALID_HANDLE_VALUE);
+    DWORD bytes_written;
+    WriteFile(handle, src, n, &bytes_written, NULL);
+    assert(bytes_written == n);
+}
+
+void serial_read_n_bytes(HANDLE handle, u32 n, void *dest) {
+    assert(handle != INVALID_HANDLE_VALUE);
+    DWORD bytes_read;
+    ReadFile(handle, dest, n, &bytes_read, NULL);
+    assert(bytes_read == n);
+}
+
+int serial_available(HANDLE handle) {
     assert(handle != INVALID_HANDLE_VALUE);
     DWORD errors;
     COMSTAT status;

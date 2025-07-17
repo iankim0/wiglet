@@ -163,10 +163,12 @@ int byte_for_C = 0;
     uint BytesRead = 0;
     // uint TotalBytesAvail = 0;
     uint BytesLeftThisMessage = 0;
-    if (PeekNamedPipe(pipe.SafePipeHandle, null, 0, ref BytesRead, ref TotalBytesAvail, ref BytesLeftThisMessage) && TotalBytesAvail > 0) {
-        int b = pipe.ReadByte();
-
-        robotRotation = lerp(0.0f, 360.0f, inverseLerp(0.0f, 100.0f, b));
+    if (PeekNamedPipe(pipe.SafePipeHandle, null, 0, ref BytesRead, ref TotalBytesAvail, ref BytesLeftThisMessage) && TotalBytesAvail >= 4) {
+        byte[] buffer = new byte[4]; // float is 4 bytes
+        int bytesRead = pipe.Read(buffer, 0, 4);
+        ASSERT(bytesRead == 4);
+        float value = BitConverter.ToSingle(buffer, 0);
+        robotRotation = value * 360.0f;
     }
   }
   

@@ -43,7 +43,6 @@ int MODULO(int a, int b) {
     return r < 0 ? r + b : r;
 }
 
-
 void Serial_clear() {
   while (Serial.available()) {
     Serial.read();
@@ -119,7 +118,7 @@ void onCanMessage(const CanMsg& msg) {
 /////////////
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(2500000);
 
   pinMode(LED_BUILTIN, OUTPUT);
   if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
@@ -130,14 +129,7 @@ void setup() {
       delay(100);
     }
   }
-  display.clearDisplay();
-  display.setTextSize(2);
-  display.setTextColor(WHITE);
-  char tmp[32];
-  strcpy(tmp, __DATE__);
-  tmp[strlen(tmp) - 4] = '\0';
-  display.printf("%s\n%s", tmp, __TIME__);  \
-  display.display();
+
 
 //  ASSERT(ss.begin(SEESAW_ADDR));
 //  ASSERT(((ss.getVersion() >> 16) & 0xFFFF)  == 4991);
@@ -176,22 +168,47 @@ void setup() {
   Serial.println("ODrive running!");
 }
 
+unsigned long prev_refresh_timestamp;
+unsigned long prev_frame_timestamp;
 void loop() {
   //ODrive:
   pumpEvents(can_intf);
-  float SINE_PERIOD = 2.0f; // Period of the position command sine wave in seconds
+  float SINE_PERIOD = 4.0f; // Period of the position command sine wave in seconds
 
-  float t = 0.001 * millis();
+  float t = 0;// 0.001 * millis();
   
   float phase = t * (TWO_PI / SINE_PERIOD);
 
+  odrv0.setPosition(sin(phase));
+  /*
   odrv0.setPosition(
     sin(phase), // position
     cos(phase) * (TWO_PI / SINE_PERIOD) // velocity feedforward (optional)
   );
-  Get_Encoder_Estimates_msg_t feedback = odrv0_user_data.last_feedback;
-  uint8_t odrivePos = lerp(0, 100, inverseLerp(-1.02, 1.02, feedback.Pos_Estimate));
-  Serial.write(odrivePos);
+  */
+  float current_position = odrv0_user_data.last_feedback.Pos_Estimate;
+  // float current_position = odrv0.getFeedback().pos;
+
+  unsigned long _millis = millis();
+  unsigned long delta_frame = (_millis - prev_frame_timestamp);
+  prev_frame_timestamp = _millis;
+  unsigned long delta_refresh = (_millis - prev_refresh_timestamp);
+  if (delta_refresh > 1000 / 24) {
+    prev_refresh_timestamp = millis();
+    display.clearDisplay();
+    display.setTextSize(2);
+    display.setTextColor(WHITE);
+    display.setCursor(0, 0);
+    char date_no_year[32];
+    strcpy(date_no_year, __DATE__);
+    date_no_year[strlen(date_no_year) - 4] = '\0';
+    int fps = (int) (1000 / delta_frame);    
+    display.printf("%s\n%s\n%.2f\n%d fps", date_no_year, __TIME__, current_position, fps);
+    display.display();
+  }
+  
+
+  Serial.write((byte *) &current_position, 4);
  // Serial.write(feedback.Pos_Estimate);
 
 
