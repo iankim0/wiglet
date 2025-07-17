@@ -23,12 +23,22 @@ using Microsoft.Win32.SafeHandles;
 
 public class Wiglet : MonoBehaviour {
 
+ [SerializeField] private float robotRotation;
+ 
  void ASSERT(bool condition) {
   if (!condition) {
    Debug.Log("ASSERT failed.");
    Debug.Log(Environment.StackTrace);
    EditorApplication.isPlaying = false;
   }
+ }
+
+ float inverseLerp(float l, float u, float pos) {
+  return ((float)pos - l) / (u - l);
+ }
+
+ float lerp(float l, float u, float t) {
+  return (((u - l) * t) + l);
  }
 
  float MagicZeroCenteredDeadBand(float x, float deadBandRadius) {
@@ -45,7 +55,7 @@ public class Wiglet : MonoBehaviour {
   return(0.5f - 0.5f * Mathf.Cos(x));
  }
 
- private bool DISABLE_VR = true;
+ private bool DISABLE_VR = false;
  private OVRCameraRig OVR_cameraRig;
  private OVRManager OVR_manager;
  private OVRPassthroughLayer OVR_passthroughLayer;
@@ -76,6 +86,8 @@ public class Wiglet : MonoBehaviour {
   robot.name = "Wobot";
   robot.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
  }
+
+[SerializeField] private uint TotalBytesAvail;
 
 NamedPipeClientStream pipe;
 void Pipe_Init() {
@@ -148,10 +160,13 @@ int byte_for_C = 0;
 
   // pipe
   {
-    uint avail = 0, bytesRead = 0, bytesLeft = 0;
-    if (PeekNamedPipe(pipe.SafePipeHandle, null, 0, ref bytesRead, ref avail, ref bytesLeft) && avail > 0) {
+    uint BytesRead = 0;
+    // uint TotalBytesAvail = 0;
+    uint BytesLeftThisMessage = 0;
+    if (PeekNamedPipe(pipe.SafePipeHandle, null, 0, ref BytesRead, ref TotalBytesAvail, ref BytesLeftThisMessage) && TotalBytesAvail > 0) {
         int b = pipe.ReadByte();
-        Debug.Log("From C: " + (char) b);
+
+        robotRotation = lerp(0.0f, 360.0f, inverseLerp(0.0f, 100.0f, b));
     }
   }
   
@@ -176,7 +191,7 @@ int byte_for_C = 0;
    if (result) {
    ++phase;
    Byte[] tmp = { 0 };
-   serialPort.Write(tmp, 0, 1);
+   //serialPort.Write(tmp, 0, 1);
    }
    return(result);
   };// NOTE: phase captured by reference
@@ -193,13 +208,13 @@ int byte_for_C = 0;
   } else if (PHASE()) { // hot
    // FORNOW
    robot.transform.Translate(new Vector3(0, (0.001f * MagicZeroCenteredDeadBand(LeftThumb.y, 0.6f)), 0));
-   robot.transform.Rotate(0, (1.5f * MagicZeroCenteredDeadBand(LeftThumb.x, 0.4f)), 0);
+   //robot.transform.Rotate(0, (1.5f * MagicZeroCenteredDeadBand(LeftThumb.x, 0.4f)), 0);
   
   if (NEXT()) {
 
    }
   } else if (PHASE()) { // live
-   robot.transform.Rotate(2.0f, 1.0f, 0);
+    robot.transform.rotation = Quaternion.Euler(0.0f, robotRotation, 0.0f);
    if (NEXT()) {
 
     initialized = false;

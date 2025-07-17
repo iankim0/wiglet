@@ -18,7 +18,19 @@
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 #include <FlexCAN_T4.h>
 #include "ODriveFlexCAN.hpp"
-float inverseLerp(float l, float u, int32_t pos) {
+
+#define SS_SWITCH   24
+#define SEESAW_ADDR 0x36
+Adafruit_seesaw ss;
+uint8_t encoder_position;
+float maxEncoderPos = 50;
+float minEncoderPos = -50;
+
+#undef LED_BUILTIN
+#define LED_BUILTIN 13
+int LED_cooldown_timer;
+
+float inverseLerp(float l, float u, float pos) {
   return ((float)pos - l) / (u - l);
 }
 
@@ -26,15 +38,17 @@ uint8_t lerp(int l, int u, float t) {
   return (uint8_t)(((u - l) * t) + l);
 }
 
+int MODULO(int a, int b) {
+    int r = a % b;
+    return r < 0 ? r + b : r;
+}
+
+
 void Serial_clear() {
   while (Serial.available()) {
     Serial.read();
   }
 }
-
-// TODO: Serial2 to send to C; monitor Serial for debug
-// (failing this, connect a screen)
-      //display.print("ASSERT(" #condition "); failed // line %d\n", __LINE__);
 
 #define STR(x) #x
 #define XSTR(x) STR(x)
@@ -53,25 +67,7 @@ void Serial_clear() {
 
 //////////////////////////////////////////////
 
-
-#define SS_SWITCH   24
-#define SEESAW_ADDR 0x36
-Adafruit_seesaw ss;
-uint8_t encoder_position;
-float maxEncoderPos = 50;
-float minEncoderPos = -50;
-
-
-int LED_cooldown_timer;
-
-
 struct ODriveStatus; // hack to prevent teensy compile error
-
-
-//////////////////////////////////////////////
-
-#undef LED_BUILTIN
-#define LED_BUILTIN 13
 
 //CAN
 FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> can_intf;
@@ -124,7 +120,6 @@ void onCanMessage(const CanMsg& msg) {
 
 void setup() {
   Serial.begin(115200);
-  // while (!Serial) delay(100);
 
   pinMode(LED_BUILTIN, OUTPUT);
   if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
@@ -138,18 +133,17 @@ void setup() {
   display.clearDisplay();
   display.setTextSize(2);
   display.setTextColor(WHITE);
-  char *tmp = __DATE__;
+  char tmp[32];
+  strcpy(tmp, __DATE__);
   tmp[strlen(tmp) - 4] = '\0';
-  display.printf("%s\n%s", __DATE__, __TIME__);  \
+  display.printf("%s\n%s", tmp, __TIME__);  \
   display.display();
 
-//  ASSERT(2 + 2 == 5);
-
-  ASSERT(ss.begin(SEESAW_ADDR));
-  ASSERT(((ss.getVersion() >> 16) & 0xFFFF)  == 4991);
-  ss.pinMode(SS_SWITCH, INPUT_PULLUP);
-  ss.setGPIOInterrupts((uint32_t)1 << SS_SWITCH, 1);
-  ss.enableEncoderInterrupt();
+//  ASSERT(ss.begin(SEESAW_ADDR));
+//  ASSERT(((ss.getVersion() >> 16) & 0xFFFF)  == 4991);
+//  ss.pinMode(SS_SWITCH, INPUT_PULLUP);
+//  ss.setGPIOInterrupts((uint32_t)1 << SS_SWITCH, 1);
+//  ss.enableEncoderInterrupt();
 
   //ODrive:
 
@@ -172,13 +166,7 @@ void setup() {
     delay(1);
     odrv0.setState(ODriveAxisState::AXIS_STATE_CLOSED_LOOP_CONTROL);
 
-    // Pump events for 150ms. This delay is needed for two reasons;
-    // 1. If there is an error condition, such as missing DC power, the ODrive might
-    //    briefly attempt to enter CLOSED_LOOP_CONTROL state, so we can't rely
-    //    on the first heartbeat response, so we want to receive at least two
-    //    heartbeats (100ms default interval).
-    // 2. If the bus is congested, the setState command won't get through
-    //    immediately but can be delayed.
+    // Pump events for 150ms
     for (int i = 0; i < 15; ++i) {
       delay(10);
       pumpEvents(can_intf);
@@ -186,16 +174,9 @@ void setup() {
   }
 
   Serial.println("ODrive running!");
-  
-}
-
-int MODULO(int a, int b) {
-    int r = a % b;
-    return r < 0 ? r + b : r;
 }
 
 void loop() {
-
   //ODrive:
   pumpEvents(can_intf);
   float SINE_PERIOD = 2.0f; // Period of the position command sine wave in seconds
@@ -208,18 +189,10 @@ void loop() {
     sin(phase), // position
     cos(phase) * (TWO_PI / SINE_PERIOD) // velocity feedforward (optional)
   );
-
-  // print position and velocity for Serial Plotter
-  if (odrv0_user_data.received_feedback) {
-    Get_Encoder_Estimates_msg_t feedback = odrv0_user_data.last_feedback;
-    odrv0_user_data.received_feedback = false;
-    Serial.print("odrv0-pos:");
-    Serial.print(feedback.Pos_Estimate);
-    Serial.print(",");
-    Serial.print("odrv0-vel:");
-    Serial.println(feedback.Vel_Estimate);
-  }
-  //
+  Get_Encoder_Estimates_msg_t feedback = odrv0_user_data.last_feedback;
+  uint8_t odrivePos = lerp(0, 100, inverseLerp(-1.02, 1.02, feedback.Pos_Estimate));
+  Serial.write(odrivePos);
+ // Serial.write(feedback.Pos_Estimate);
 
 
   // // receive
@@ -229,15 +202,12 @@ void loop() {
   }
   
   // // send
+  //uint8_t new_position = MODULO(ss.getEncoderPosition(), 24);
 
-  //get and clamp encoder position
-  uint8_t new_position = MODULO(ss.getEncoderPosition(), 24);
-
-
-  if (encoder_position != new_position) {
-    Serial.write(new_position);         // display new position
-    encoder_position = new_position;      // and save for next round
-  }
+//  if (encoder_position != new_position) {
+//    Serial.write(new_position);         // display new position
+//    encoder_position = new_position;    // and save for next round
+//  }
 
   // updates
   if (LED_cooldown_timer > 0) {
@@ -246,5 +216,4 @@ void loop() {
   } else {
     digitalWrite(LED_BUILTIN, LOW);
   }
-
 }

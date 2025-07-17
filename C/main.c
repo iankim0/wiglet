@@ -4,6 +4,8 @@
 #include "pipe.c"
 #include <math.h>
 
+
+
 HANDLE teensyHandle;
 HANDLE unityHandle;
 bool usingUnity = true; 
@@ -81,6 +83,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         unityHandle = pipe_open("UnityPipe");
     }
 
+    u64 timestamp = 0;
     MSG msg;
     while (1) {
         while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
@@ -92,12 +95,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         if (serial_num_bytes_ready_to_read(teensyHandle)) {
             //NOTE: input must be raw bit representation
             // FORNOW
-            u8 encoderPosition = 0;
+            u8 odrivePosition = 0;
             while (serial_num_bytes_ready_to_read(teensyHandle)) {
-                encoderPosition = serial_read_byte(teensyHandle);
+                odrivePosition = serial_read_byte(teensyHandle);
             }
 
-            angle = (encoderPosition / 12.0f) * 3.14f; // Converting to radians
+            u64 new_timestamp = basics_get_timestamp();
+            if ((new_timestamp - timestamp) > (1000U / 30U)) {
+                timestamp = new_timestamp;
+                serial_write_byte(unityHandle, odrivePosition);
+            }
+            
+            angle = lerp(0.0f, 6.28f, inverseLerp(0.0f, 100.0f, odrivePosition));
             InvalidateRect(hwnd, NULL, true);
         }
 

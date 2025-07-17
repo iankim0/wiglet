@@ -42,3 +42,18 @@ int printf(const char *format, ...) {
     return(length);
 }
 
+float inverseLerp(float l, float u, float pos) {
+  return ((float)pos - l) / (u - l);
+}
+
+float lerp(float l, float u, float t) {
+  return (((u - l) * t) + l);
+}
+
+u64 basics_get_timestamp() {
+    FILETIME ft;
+    GetSystemTimeAsFileTime(&ft);
+    ULARGE_INTEGER ul = {.LowPart = ft.dwLowDateTime, .HighPart = ft.dwHighDateTime};
+    return ((u64) (ul.QuadPart - 116444736000000000ULL)) / 10000;
+}
+

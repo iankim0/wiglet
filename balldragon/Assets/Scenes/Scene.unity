@@ -193,7 +193,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3a1445bf522301f4f95c81ecc21deb55, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  floorManager: {fileID: 1634560938}
   phase: 0
 --- !u!4 &230430666
 Transform:
@@ -231,7 +230,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!20 &455283713
 Camera:
   m_ObjectHideFlags: 0
