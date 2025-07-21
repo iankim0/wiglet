@@ -51,9 +51,27 @@ float lerp(float l, float u, float t) {
   return (((u - l) * t) + l);
 }
 
-u64 basics_get_timestamp() {
+u64 wig_get_timestamp() {
     FILETIME ft;
     GetSystemTimeAsFileTime(&ft);
     ULARGE_INTEGER ul = {.LowPart = ft.dwLowDateTime, .HighPart = ft.dwHighDateTime};
     return ((u64) (ul.QuadPart - 116444736000000000ULL)) / 10000;
 }
+
+#define TAU 6.28
+f32 wig_sin(f32 turns) {
+    return sinf(turns * TAU);
+}
+
+f32 wig_cos(f32 turns) {
+    return cosf(turns * TAU);
+}
+
+f32 wig_atan2(f32 y, f32 x) {
+    f32 angle_rad = atan2f(y, x);
+    f32 turns = angle_rad / TAU;
+    if (turns < 0.0f) {
+        turns += 1.0f;
+    }
+    return turns;
+}   

@@ -23,23 +23,31 @@ typedef struct {
 
 vec3 unity_read_current_virtual_hand_position() {
     vec3 result = {0};
-    // TODO
+    // TODO p2
+    while (pipe_available(unityHandle) >= 12) {
+        pipe_read_n_bytes(unityHandle, 12, &result);
+    }
+    printf("curr hand position: %f, %f, %f\n", result.x, result.y, result.z);
     return(result);
 }
 
 void unity_write_target_virtual_angle(f32 target_virtual_angle) {
-    // TODO
+    pipe_write_n_bytes(unityHandle, 4, &target_virtual_angle);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 f32 teensy_read_current_physical_angle() {
     f32 result = 0;
-    // TODO
+    // TODO p2
+    if (serial_available(teensyHandle) >= 4) {
+        serial_read_n_bytes(teensyHandle, 4, &result);
+    }
     return(result);
 }
 
 void teensy_write_target_physical_angle(f32 target_physical_angle) {
+    serial_write_n_bytes(teensyHandle, 4, &target_physical_angle);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -61,18 +69,21 @@ OptInput opt_read_input() {
     return(result);
 }
 
-OptInput opt_write_output(OptOutput output) {
+void opt_write_output(OptOutput output) {
     unity_write_target_virtual_angle(output.target_virtual_angle);
     teensy_write_target_physical_angle(output.target_physical_angle);
 }
 
 OptOutput opt_optimize(OptInput input) {
     OptOutput result = {0};
-    // TODO
+    result.target_physical_angle = wig_atan2(input.current_virtual_hand_position.y, input.current_virtual_hand_position.x);
+
+    result.target_virtual_angle = wig_atan2(input.current_virtual_hand_position.y, input.current_virtual_hand_position.x);
+
     return(result);
 }
 
-OptOutput opt_wrapper() {
+void opt_wrapper() {
     OptInput input = opt_read_input();
     OptOutput output = opt_optimize(input);
     opt_write_output(output);
@@ -164,34 +175,36 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
+
+        opt_wrapper();
         
-        if (serial_available(teensyHandle) >= 4) {
-            while (serial_available(teensyHandle) >= 4) { // FORNOW
-                serial_read_n_bytes(teensyHandle, 4, &odrivePosition);
-            }
+        // if (serial_available(teensyHandle) >= 4) {
+        //     while (serial_available(teensyHandle) >= 4) { // FORNOW
+        //         serial_read_n_bytes(teensyHandle, 4, &odrivePosition);
+        //     }
 
-            u64 new_timestamp = basics_get_timestamp();
-            if ((new_timestamp - timestamp) > (1000U / 110U)) { // FORNOW 110
-                timestamp = new_timestamp;
-                if (unityIsConnected) {
-                    pipe_write_n_bytes(unityHandle, 4, &odrivePosition);
-                }
-            }
+        //     u64 new_timestamp = wig_get_timestamp();
+        //     if ((new_timestamp - timestamp) > (1000U / 110U)) { // FORNOW 110
+        //         timestamp = new_timestamp;
+        //         if (unityIsConnected) {
+        //             pipe_write_n_bytes(unityHandle, 4, &odrivePosition);
+        //         }
+        //     }
             
-            InvalidateRect(hwnd, NULL, true);
-        }
+        //     InvalidateRect(hwnd, NULL, true);
+        // }
 
-        if (unityIsConnected) {
-            if (pipe_available(unityHandle)) {
-                u8 byte_from_Unity;
-                while (pipe_available(unityHandle)) {
-                    //NOTE: input must be raw bit representation
-                    pipe_read_byte(unityHandle, &byte_from_Unity);
-                }
-                // TODO: Purge???
-                pipe_write_n_bytes(teensyHandle, 1, & byte_from_Unity);
-            }
-        }
+        // if (unityIsConnected) {
+        //     if (pipe_available(unityHandle)) {
+        //         u8 byte_from_Unity;
+        //         while (pipe_available(unityHandle)) {
+        //             //NOTE: input must be raw bit representation
+        //             pipe_read_byte(unityHandle, &byte_from_Unity);
+        //         }
+        //         // TODO: Purge???
+        //         pipe_write_n_bytes(teensyHandle, 1, & byte_from_Unity);
+        //     }
+        // }
 
     }
 

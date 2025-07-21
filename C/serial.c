@@ -55,7 +55,7 @@ void serial_write_n_bytes(HANDLE handle, u32 n, void *src) {
     assert(handle != INVALID_HANDLE_VALUE);
     DWORD bytes_written;
     WriteFile(handle, src, n, &bytes_written, NULL);
-    assert(bytes_written == n);
+    //assert(bytes_written == n);
 }
 
 void serial_read_n_bytes(HANDLE handle, u32 n, void *dest) {

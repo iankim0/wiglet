@@ -207,17 +207,17 @@ void loop() {
     display.display();
   }
   
-
+  
   Serial.write((byte *) &current_position, 4);
  // Serial.write(feedback.Pos_Estimate);
 
 
   // // receive
   if (Serial.available()) {
-    Serial.read();
-    odrv0.setPosition(odrv0_user_data.last_feedback.Pos_Estimate + 5.0);
+    float newAngle = Serial.read();
+    odrv0.setPosition(odrv0_user_data.last_feedback.Pos_Estimate + newAngle);
     Serial_clear();
-    LED_cooldown_timer = 100;
+    LED_cooldown_timer = 100; 
   }
   
   // // send

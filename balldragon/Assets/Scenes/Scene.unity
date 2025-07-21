@@ -193,6 +193,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3a1445bf522301f4f95c81ecc21deb55, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  robotRotation: 0
+  TotalBytesAvail: 0
   phase: 0
 --- !u!4 &230430666
 Transform:
@@ -2581,12 +2583,12 @@ Light:
   m_GameObject: {fileID: 1254712651}
   m_Enabled: 1
   serializedVersion: 10
-  m_Type: 1
+  m_Type: 0
   m_Shape: 0
-  m_Color: {r: 0.9137255, g: 1, b: 1, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_Intensity: 1
   m_Range: 10
-  m_SpotAngle: 30
+  m_SpotAngle: 31
   m_InnerSpotAngle: 21.80208
   m_CookieSize: 10
   m_Shadows:
@@ -2643,7 +2645,7 @@ Transform:
   m_GameObject: {fileID: 1254712651}
   serializedVersion: 2
   m_LocalRotation: {x: 0.08715578, y: 0, z: 0, w: 0.9961947}
-  m_LocalPosition: {x: 0, y: 0.5, z: -2}
+  m_LocalPosition: {x: 0, y: 0.86, z: -2}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

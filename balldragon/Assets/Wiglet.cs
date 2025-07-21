@@ -87,6 +87,13 @@ public class Wiglet : MonoBehaviour {
   robot.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
  }
 
+ private GameObject hand;
+ void FakeHand_Init() {
+  hand = GameObject.CreatePrimitive(PrimitiveType.Sphere); 
+  hand.name = "Hand";
+  hand.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
+ }
+
 [SerializeField] private uint TotalBytesAvail;
 
 NamedPipeClientStream pipe;
@@ -110,6 +117,8 @@ int byte_for_C = 0;
   // SerialPort_Init();
   Robot_Init();  
   Pipe_Init();
+  FakeHand_Init();
+
  }
 
  [SerializeField] int phase;
@@ -157,6 +166,16 @@ int byte_for_C = 0;
    OVR_togglePassThrough();
   }
 
+  if (Input.GetKeyDown(KeyCode.UpArrow)) {
+    hand.transform.position += new Vector3(0.1f, 0f, 0f);
+  } else if (Input.GetKeyDown(KeyCode.DownArrow)) {
+    hand.transform.position -= new Vector3(0.10f, 0f, 0f);
+  } else if (Input.GetKeyDown(KeyCode.RightArrow)) {
+    hand.transform.position += new Vector3(0f, 0f, 0.10f);
+  } else if (Input.GetKeyDown(KeyCode.LeftArrow)) {
+    hand.transform.position -= new Vector3(0f, 0f, 0.10f);
+  }
+
 
   // pipe
   {
@@ -171,11 +190,15 @@ int byte_for_C = 0;
         robotRotation = value * 360.0f;
     }
   }
-  
-  if (Input.GetKeyDown(KeyCode.C)) {  
-      pipe.WriteByte((byte) byte_for_C);
-      byte_for_C += 10;
-  }
+
+  byte[] bytesToWrite = new byte[12];
+  System.Buffer.BlockCopy(System.BitConverter.GetBytes(hand.transform.position.x), 0, bytesToWrite, 0, 4);
+  System.Buffer.BlockCopy(System.BitConverter.GetBytes(hand.transform.position.y), 0, bytesToWrite, 4, 4);
+  System.Buffer.BlockCopy(System.BitConverter.GetBytes(hand.transform.position.z), 0, bytesToWrite, 8, 4);
+  pipe.Write(bytesToWrite, 0, 12);
+  //pipe.Flush();
+
+  pipe.WriteByte()
 
 
 
