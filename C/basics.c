@@ -57,4 +57,3 @@ u64 basics_get_timestamp() {
     ULARGE_INTEGER ul = {.LowPart = ft.dwLowDateTime, .HighPart = ft.dwHighDateTime};
     return ((u64) (ul.QuadPart - 116444736000000000ULL)) / 10000;
 }
-

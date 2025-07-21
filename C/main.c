@@ -11,6 +11,75 @@ HANDLE unityHandle;
 bool unityIsConnected;
 f32 odrivePosition;
 
+////////////////////////////////////////////////////////////////////////////////
+
+typedef struct {
+    f32 x;
+    f32 y;
+    f32 z;
+} vec3;
+
+////////////////////////////////////////////////////////////////////////////////
+
+vec3 unity_read_current_virtual_hand_position() {
+    vec3 result = {0};
+    // TODO
+    return(result);
+}
+
+void unity_write_target_virtual_angle(f32 target_virtual_angle) {
+    // TODO
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+f32 teensy_read_current_physical_angle() {
+    f32 result = 0;
+    // TODO
+    return(result);
+}
+
+void teensy_write_target_physical_angle(f32 target_physical_angle) {
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+typedef struct {
+    f32 current_physical_angle;
+    vec3 current_virtual_hand_position;
+} OptInput;
+
+typedef struct {
+    f32 target_physical_angle;
+    f32 target_virtual_angle;
+} OptOutput;
+
+OptInput opt_read_input() {
+    OptInput result = {0};
+    result.current_virtual_hand_position = unity_read_current_virtual_hand_position();
+    result.current_physical_angle = teensy_read_current_physical_angle();
+    return(result);
+}
+
+OptInput opt_write_output(OptOutput output) {
+    unity_write_target_virtual_angle(output.target_virtual_angle);
+    teensy_write_target_physical_angle(output.target_physical_angle);
+}
+
+OptOutput opt_optimize(OptInput input) {
+    OptOutput result = {0};
+    // TODO
+    return(result);
+}
+
+OptOutput opt_wrapper() {
+    OptInput input = opt_read_input();
+    OptOutput output = opt_optimize(input);
+    opt_write_output(output);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     LRESULT result = 0;
     if (0) {
@@ -114,17 +183,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
         if (unityIsConnected) {
             if (pipe_available(unityHandle)) {
-                //NOTE: input must be raw bit representation
                 u8 byte_from_Unity;
-                pipe_read_byte(unityHandle, &byte_from_Unity);
-
+                while (pipe_available(unityHandle)) {
+                    //NOTE: input must be raw bit representation
+                    pipe_read_byte(unityHandle, &byte_from_Unity);
+                }
                 // TODO: Purge???
-
-                HDC hdc = GetDC(hwnd);
-                RECT rc; GetClientRect(hwnd, &rc); 
-                HBRUSH brush = CreateSolidBrush(RGB(byte_from_Unity, 0, 0));
-                FillRect(hdc, &rc, brush); 
-                DeleteObject(brush);
+                pipe_write_n_bytes(teensyHandle, 1, & byte_from_Unity);
             }
         }
 

@@ -55,7 +55,7 @@ public class Wiglet : MonoBehaviour {
   return(0.5f - 0.5f * Mathf.Cos(x));
  }
 
- private bool DISABLE_VR = false;
+ private bool DISABLE_VR = true;
  private OVRCameraRig OVR_cameraRig;
  private OVRManager OVR_manager;
  private OVRPassthroughLayer OVR_passthroughLayer;
@@ -172,7 +172,7 @@ int byte_for_C = 0;
     }
   }
   
-  if (Input.GetKeyDown(KeyCode.C)) {
+  if (Input.GetKeyDown(KeyCode.C)) {  
       pipe.WriteByte((byte) byte_for_C);
       byte_for_C += 10;
   }

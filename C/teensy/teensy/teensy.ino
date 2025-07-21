@@ -175,11 +175,11 @@ void loop() {
   pumpEvents(can_intf);
   float SINE_PERIOD = 4.0f; // Period of the position command sine wave in seconds
 
-  float t = 0;// 0.001 * millis();
-  
-  float phase = t * (TWO_PI / SINE_PERIOD);
-
-  odrv0.setPosition(sin(phase));
+//  float t = 0;// 0.001 * millis();
+//  
+//  float phase = t * (TWO_PI / SINE_PERIOD);
+//
+//  odrv0.setPosition(sin(phase));
   /*
   odrv0.setPosition(
     sin(phase), // position
@@ -214,6 +214,8 @@ void loop() {
 
   // // receive
   if (Serial.available()) {
+    Serial.read();
+    odrv0.setPosition(odrv0_user_data.last_feedback.Pos_Estimate + 5.0);
     Serial_clear();
     LED_cooldown_timer = 100;
   }
