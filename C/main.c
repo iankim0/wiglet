@@ -21,18 +21,14 @@ typedef struct {
 } vec3;
 
 ////////////////////////////////////////////////////////////////////////////////
-vec3 resultGlobal;
+
 
 vec3 unity_read_current_virtual_hand_position() {
-
-    // int deadBeef;
-    // TODO p2
+    static vec3 result;
     while (pipe_available(unityHandle) >= 12) {
-        pipe_read_n_bytes(unityHandle, 12, &resultGlobal);
+        pipe_read_n_bytes(unityHandle, 12, &result);
     }
-
-    // printf("curr hand position: %f, %f, %f\n", resultGlobal.x, resultGlobal.y, resultGlobal.z);
-    return(resultGlobal);
+    return(result);
 }
 
 void unity_write_target_virtual_angle(f32 target_virtual_angle) {
@@ -41,11 +37,12 @@ void unity_write_target_virtual_angle(f32 target_virtual_angle) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-f32 global_current_physical_angle;
-void teensy_read_current_physical_angle() {
+f32 teensy_read_current_physical_angle() {
+    static f32 result;
     while (serial_available(teensyHandle) >= 4) {
-        serial_read_n_bytes(teensyHandle, 4, &global_current_physical_angle);
+        serial_read_n_bytes(teensyHandle, 4, &result);
     }
+    return(result);
 }
 
 void teensy_write_target_physical_angle(f32 target_physical_angle) {
@@ -71,8 +68,7 @@ typedef struct {
 OptInput opt_read_input() {
     OptInput result = {0};
     result.current_virtual_hand_position = unity_read_current_virtual_hand_position();
-    teensy_read_current_physical_angle();
-    result.current_physical_angle = global_current_physical_angle;
+    result.current_physical_angle = teensy_read_current_physical_angle();
     return(result);
 }
 
