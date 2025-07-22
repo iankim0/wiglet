@@ -81,10 +81,16 @@ public class Wiglet : MonoBehaviour {
  }
 
  private GameObject robot;
+ private GameObject pointyThing;
  void Robot_Init() {
   robot = GameObject.CreatePrimitive(PrimitiveType.Cube);
   robot.name = "Wobot";
   robot.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
+  pointyThing = GameObject.CreatePrimitive(PrimitiveType.Cube);
+  pointyThing.name = "Direction";
+  pointyThing.transform.localScale = new Vector3(0.03f, 0.05f, 0.3f);
+  pointyThing.transform.SetParent(robot.transform);
+  pointyThing.transform.localPosition = new Vector3(0f, 0f, 1f);
  }
 
  private GameObject hand;
@@ -166,14 +172,21 @@ int byte_for_C = 0;
    OVR_togglePassThrough();
   }
 
-  if (Input.GetKeyDown(KeyCode.UpArrow)) {
-    hand.transform.position += new Vector3(0.1f, 0f, 0f);
-  } else if (Input.GetKeyDown(KeyCode.DownArrow)) {
-    hand.transform.position -= new Vector3(0.10f, 0f, 0f);
-  } else if (Input.GetKeyDown(KeyCode.RightArrow)) {
-    hand.transform.position += new Vector3(0f, 0f, 0.10f);
-  } else if (Input.GetKeyDown(KeyCode.LeftArrow)) {
-    hand.transform.position -= new Vector3(0f, 0f, 0.10f);
+  {
+    Vector3 dir = Vector3.zero;
+    if (Input.GetKey(KeyCode.RightArrow)) {
+      dir += new Vector3(1, 0f, 0f);
+    }
+    if (Input.GetKey(KeyCode.LeftArrow)) {
+      dir -= new Vector3(1, 0f, 0f);
+    } 
+    if (Input.GetKey(KeyCode.UpArrow)) {
+      dir += new Vector3(0f, 0f, 1);
+    }
+    if (Input.GetKey(KeyCode.DownArrow)) {
+      dir -= new Vector3(0f, 0f, 1);
+    }
+    hand.transform.position += (0.001f * dir);
   }
 
 
@@ -192,13 +205,15 @@ int byte_for_C = 0;
   }
 
   byte[] bytesToWrite = new byte[12];
-  System.Buffer.BlockCopy(System.BitConverter.GetBytes(hand.transform.position.x), 0, bytesToWrite, 0, 4);
+  System.Buffer.BlockCopy(System.BitConverter.GetBytes(hand.transform.position.x), 0, bytesToWrite, 8, 4);
   System.Buffer.BlockCopy(System.BitConverter.GetBytes(hand.transform.position.y), 0, bytesToWrite, 4, 4);
-  System.Buffer.BlockCopy(System.BitConverter.GetBytes(hand.transform.position.z), 0, bytesToWrite, 8, 4);
+  System.Buffer.BlockCopy(System.BitConverter.GetBytes(hand.transform.position.z), 0, bytesToWrite, 0, 4);
   pipe.Write(bytesToWrite, 0, 12);
-  //pipe.Flush();
+  pipe.Flush();
 
-  pipe.WriteByte()
+
+  //byte[] deadBeef = {0xEF, 0xBE, 0xAD, 0xDE}; 
+  //pipe.Write(deadBeef, 0, 4);
 
 
 

@@ -1,8 +1,9 @@
 #define _CRT_SECURE_NO_WARNINGS
+#include <math.h>
 #include "basics.c"
 #include "serial.c"
 #include "pipe.c"
-#include <math.h>
+
 
 
 
@@ -20,15 +21,18 @@ typedef struct {
 } vec3;
 
 ////////////////////////////////////////////////////////////////////////////////
+vec3 resultGlobal;
 
 vec3 unity_read_current_virtual_hand_position() {
-    vec3 result = {0};
+
+    // int deadBeef;
     // TODO p2
     while (pipe_available(unityHandle) >= 12) {
-        pipe_read_n_bytes(unityHandle, 12, &result);
+        pipe_read_n_bytes(unityHandle, 12, &resultGlobal);
     }
-    printf("curr hand position: %f, %f, %f\n", result.x, result.y, result.z);
-    return(result);
+
+    // printf("curr hand position: %f, %f, %f\n", resultGlobal.x, resultGlobal.y, resultGlobal.z);
+    return(resultGlobal);
 }
 
 void unity_write_target_virtual_angle(f32 target_virtual_angle) {
@@ -37,20 +41,22 @@ void unity_write_target_virtual_angle(f32 target_virtual_angle) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-f32 teensy_read_current_physical_angle() {
-    f32 result = 0;
-    // TODO p2
-    if (serial_available(teensyHandle) >= 4) {
-        serial_read_n_bytes(teensyHandle, 4, &result);
+f32 global_current_physical_angle;
+void teensy_read_current_physical_angle() {
+    while (serial_available(teensyHandle) >= 4) {
+        serial_read_n_bytes(teensyHandle, 4, &global_current_physical_angle);
     }
-    return(result);
 }
 
 void teensy_write_target_physical_angle(f32 target_physical_angle) {
+    //printf("target physical turnsz %f\n", target_physical_angle); 
+    // target_physical_angle = nextTurn(current_physical_angle, target_physical_angle);
     serial_write_n_bytes(teensyHandle, 4, &target_physical_angle);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+
+
 
 typedef struct {
     f32 current_physical_angle;
@@ -65,28 +71,87 @@ typedef struct {
 OptInput opt_read_input() {
     OptInput result = {0};
     result.current_virtual_hand_position = unity_read_current_virtual_hand_position();
-    result.current_physical_angle = teensy_read_current_physical_angle();
+    teensy_read_current_physical_angle();
+    result.current_physical_angle = global_current_physical_angle;
     return(result);
 }
 
-void opt_write_output(OptOutput output) {
+void opt_write_output(OptOutput output, OptInput input) {
     unity_write_target_virtual_angle(output.target_virtual_angle);
     teensy_write_target_physical_angle(output.target_physical_angle);
 }
 
+// NOTE: all angles in turns
+// map angle_01 from domain [0, 1] to be as close as possible to reference_angle
+
+f32 remap_angle(f32 angle_01, f32 reference_angle) {
+    #if 1
+    f32 floored = floor(reference_angle); 
+    f32 remainder = reference_angle - floored; 
+    f32 delta = angle_01 - remainder; 
+    if (delta > 0.5f) {
+        angle_01 -= 1.0f; 
+    } else if (delta < -0.5f) {
+        angle_01 += 1.0f;
+    } 
+
+
+    f32 result = floored + angle_01;
+    static f32 prev_angle_01;
+    static f32 prev_reference_angle;
+    static f32 prev_result;
+    if (abs(result - prev_result) > 0.1f) {
+      printf("\n\n\n");
+      printf("(%f %f) -> %f\n", prev_angle_01, prev_reference_angle, prev_result);
+      printf("(%f %f) -> %f\n", angle_01, reference_angle, result);
+    }
+    prev_angle_01 = angle_01;
+    prev_reference_angle = reference_angle;
+    prev_result = result;
+    odrivePosition = result;
+    return result;
+    #else
+    f32 reference_angle_integer_part = (int)(reference_angle);
+    f32 reference_angle_decimal_part = (reference_angle - reference_angle_integer_part); 
+
+    // find delta between [-0.5, 0.5]
+    f32 delta = angle_01 - reference_angle_decimal_part;
+    while (delta > 0.5f) {
+        delta -= 1.0f;
+    }
+    while (delta < -0.5f) {
+        delta += 1.0f;
+    } 
+
+    f32 result = reference_angle + delta;
+    static f32 prev_angle_01;
+    static f32 prev_reference_angle;
+    static f32 prev_result;
+    if (abs(result - prev_result) > 0.1f) {
+      printf("\n\n\n");
+      printf("(%f %f) -> %f\n", prev_angle_01, prev_reference_angle, prev_result);
+      printf("(%f %f) -> %f\n", angle_01, reference_angle, result);
+    }
+    prev_angle_01 = angle_01;
+    prev_reference_angle = reference_angle;
+    prev_result = result;
+    return result; 
+    #endif
+}
+
 OptOutput opt_optimize(OptInput input) {
     OptOutput result = {0};
-    result.target_physical_angle = wig_atan2(input.current_virtual_hand_position.y, input.current_virtual_hand_position.x);
-
-    result.target_virtual_angle = wig_atan2(input.current_virtual_hand_position.y, input.current_virtual_hand_position.x);
-
+    f32 angle_01 = wig_atan2(input.current_virtual_hand_position.z, input.current_virtual_hand_position.x);
+    f32 angle = remap_angle(angle_01, input.current_physical_angle); 
+    result.target_virtual_angle = angle;
+    result.target_physical_angle = angle;
     return(result);
 }
 
 void opt_wrapper() {
     OptInput input = opt_read_input();
     OptOutput output = opt_optimize(input);
-    opt_write_output(output);
+    opt_write_output(output, input);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -162,10 +227,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     teensyHandle = serial_open("COM11", 115200);
     unityHandle = pipe_create("UnityPipe");
 
+
     u64 timestamp = 0;
     MSG msg;
     while (1) {
-        if (!unityIsConnected) {
+        while (!unityIsConnected) {
             unityIsConnected = pipe_attempt_to_connect(unityHandle);
             if (unityIsConnected) printf("[INFO] Connected to Unity via pipe.\n");
         }
@@ -177,6 +243,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         }
 
         opt_wrapper();
+        InvalidateRect(hwnd, NULL, true);
+
         
         // if (serial_available(teensyHandle) >= 4) {
         //     while (serial_available(teensyHandle) >= 4) { // FORNOW

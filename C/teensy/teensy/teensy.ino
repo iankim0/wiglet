@@ -117,6 +117,10 @@ void onCanMessage(const CanMsg& msg) {
 }
 /////////////
 
+
+float current_position;
+float newAngle;
+char buffer[4];
 void setup() {
   Serial.begin(2500000);
 
@@ -166,6 +170,8 @@ void setup() {
   }
 
   Serial.println("ODrive running!");
+  odrv0.setPosition(0.0);
+  //current_position = 0.0;
 }
 
 unsigned long prev_refresh_timestamp;
@@ -173,21 +179,6 @@ unsigned long prev_frame_timestamp;
 void loop() {
   //ODrive:
   pumpEvents(can_intf);
-  float SINE_PERIOD = 4.0f; // Period of the position command sine wave in seconds
-
-//  float t = 0;// 0.001 * millis();
-//  
-//  float phase = t * (TWO_PI / SINE_PERIOD);
-//
-//  odrv0.setPosition(sin(phase));
-  /*
-  odrv0.setPosition(
-    sin(phase), // position
-    cos(phase) * (TWO_PI / SINE_PERIOD) // velocity feedforward (optional)
-  );
-  */
-  float current_position = odrv0_user_data.last_feedback.Pos_Estimate;
-  // float current_position = odrv0.getFeedback().pos;
 
   unsigned long _millis = millis();
   unsigned long delta_frame = (_millis - prev_frame_timestamp);
@@ -203,7 +194,7 @@ void loop() {
     strcpy(date_no_year, __DATE__);
     date_no_year[strlen(date_no_year) - 4] = '\0';
     int fps = (int) (1000 / delta_frame);    
-    display.printf("%s\n%s\n%.2f\n%d fps", date_no_year, __TIME__, current_position, fps);
+    display.printf("%s\n%s\n%.2f\n%f ", date_no_year, __TIME__, current_position, newAngle);
     display.display();
   }
   
@@ -211,11 +202,12 @@ void loop() {
   Serial.write((byte *) &current_position, 4);
  // Serial.write(feedback.Pos_Estimate);
 
-
   // // receive
-  if (Serial.available()) {
-    float newAngle = Serial.read();
-    odrv0.setPosition(odrv0_user_data.last_feedback.Pos_Estimate + newAngle);
+  if (Serial.available() >= 4) {
+    Serial.readBytes(buffer, 4);  
+    memcpy(&newAngle, buffer, 4);   
+    odrv0.setPosition(newAngle);
+    current_position = odrv0_user_data.last_feedback.Pos_Estimate;
     Serial_clear();
     LED_cooldown_timer = 100; 
   }
