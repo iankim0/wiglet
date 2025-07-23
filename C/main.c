@@ -45,14 +45,10 @@ f32 teensy_read_current_physical_angle() {
 }
 
 void teensy_write_target_physical_angle(f32 target_physical_angle) {
-    //printf("target physical turnsz %f\n", target_physical_angle); 
-    // target_physical_angle = nextTurn(current_physical_angle, target_physical_angle);
     serial_write_n_bytes(teensyHandle, 4, &target_physical_angle);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-
-
 
 typedef struct {
     f32 current_physical_angle;
@@ -72,7 +68,7 @@ OptInput opt_read_input() {
 }
 
 void opt_write_output(OptOutput output, OptInput input) {
-    unity_write_target_virtual_angle(output.target_virtual_angle);
+    unity_write_target_virtual_angle(input.current_physical_angle);
     teensy_write_target_physical_angle(-1 * output.target_physical_angle);
 }
 
@@ -80,7 +76,6 @@ void opt_write_output(OptOutput output, OptInput input) {
 // map angle_01 from domain [0, 1] to be as close as possible to reference_angle
 
 f32 remap_angle(f32 angle_01, f32 reference_angle) {
-    #if 1
     f32 floored = floor(reference_angle); 
     f32 remainder = reference_angle - floored; 
     f32 delta = angle_01 - remainder; 
@@ -89,7 +84,6 @@ f32 remap_angle(f32 angle_01, f32 reference_angle) {
     } else if (delta < -0.5f) {
         angle_01 += 1.0f;
     } 
-
 
     f32 result = floored + angle_01;
     static f32 prev_angle_01;
@@ -105,33 +99,6 @@ f32 remap_angle(f32 angle_01, f32 reference_angle) {
     prev_result = result;
     odrivePosition = result;
     return result;
-    #else
-    f32 reference_angle_integer_part = (int)(reference_angle);
-    f32 reference_angle_decimal_part = (reference_angle - reference_angle_integer_part); 
-
-    // find delta between [-0.5, 0.5]
-    f32 delta = angle_01 - reference_angle_decimal_part;
-    while (delta > 0.5f) {
-        delta -= 1.0f;
-    }
-    while (delta < -0.5f) {
-        delta += 1.0f;
-    } 
-
-    f32 result = reference_angle + delta;
-    static f32 prev_angle_01;
-    static f32 prev_reference_angle;
-    static f32 prev_result;
-    if (abs(result - prev_result) > 0.1f) {
-      printf("\n\n\n");
-      printf("(%f %f) -> %f\n", prev_angle_01, prev_reference_angle, prev_result);
-      printf("(%f %f) -> %f\n", angle_01, reference_angle, result);
-    }
-    prev_angle_01 = angle_01;
-    prev_reference_angle = reference_angle;
-    prev_result = result;
-    return result; 
-    #endif
 }
 
 OptOutput opt_optimize(OptInput input) {
@@ -220,6 +187,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     teensyHandle = serial_open("COM11", 115200);
     unityHandle = pipe_create("UnityPipe");
+
+    unity_write_target_virtual_angle(0.0f);
+    teensy_write_target_physical_angle(0.0f);
 
     //u64 timestamp = 0;
     MSG msg;

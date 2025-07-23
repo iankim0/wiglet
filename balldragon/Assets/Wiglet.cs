@@ -19,8 +19,6 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using Microsoft.Win32.SafeHandles;
 
-
-
 public class Wiglet : MonoBehaviour {
 
  [SerializeField] private float robotRotation;
@@ -81,16 +79,15 @@ public class Wiglet : MonoBehaviour {
  }
 
  private GameObject robot;
- private GameObject pointyThing;
+ private GameObject stick;
  void Robot_Init() {
-  robot = GameObject.CreatePrimitive(PrimitiveType.Cube);
-  robot.name = "Wobot";
-  robot.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
-  pointyThing = GameObject.CreatePrimitive(PrimitiveType.Cube);
-  pointyThing.name = "Direction";
-  pointyThing.transform.localScale = new Vector3(0.03f, 0.05f, 0.3f);
-  pointyThing.transform.SetParent(robot.transform);
-  pointyThing.transform.localPosition = new Vector3(0f, 0f, 1f);
+  robot = new GameObject("Robot");
+  stick = GameObject.CreatePrimitive(PrimitiveType.Cube);
+  stick.transform.SetParent(robot.transform);
+  stick.name = "Stick";
+  stick.transform.localScale = new Vector3(0.025f, 0.014f, 0.07f);
+  stick.transform.localPosition = new Vector3(0f, 0f, (0.07f / 2 - 0.01f));
+  stick.GetComponent<Renderer>().material.SetColor("_Color", new Color(1.0f, 0.5f, 0.0f));
  }
 
  private GameObject hand;
@@ -192,35 +189,6 @@ int byte_for_C = 0;
     hand.transform.position += (0.001f * dir);
   }
 
-
-  // pipe
-  {
-    uint BytesRead = 0;
-    // uint TotalBytesAvail = 0;
-    uint BytesLeftThisMessage = 0;
-    while (PeekNamedPipe(pipe.SafePipeHandle, null, 0, ref BytesRead, ref TotalBytesAvail, ref BytesLeftThisMessage) && TotalBytesAvail >= 4) {  
-      byte[] buffer = new byte[4]; // float is 4 bytes
-      int bytesRead = pipe.Read(buffer, 0, 4);
-      ASSERT(bytesRead == 4);
-      float value = BitConverter.ToSingle(buffer, 0);
-      robotRotation = value * 360.0f;
-    }
-  }
-
-  byte[] bytesToWrite = new byte[12];
-  System.Buffer.BlockCopy(System.BitConverter.GetBytes(hand.transform.position.x - robot.transform.position.x), 0, bytesToWrite, 8, 4);
-  System.Buffer.BlockCopy(System.BitConverter.GetBytes(hand.transform.position.y - robot.transform.position.y), 0, bytesToWrite, 4, 4);
-  System.Buffer.BlockCopy(System.BitConverter.GetBytes(hand.transform.position.z - robot.transform.position.z), 0, bytesToWrite, 0, 4);
-  pipe.Write(bytesToWrite, 0, 12);
-  pipe.Flush();
-
-
-  //byte[] deadBeef = {0xEF, 0xBE, 0xAD, 0xDE}; 
-  //pipe.Write(deadBeef, 0, 4);
-
-
-
-
   bool reset = (!initialized || LeftThumbstick_Pressed);
   if (reset) { // reset
    initialized = true;
@@ -232,12 +200,10 @@ int byte_for_C = 0;
   Func<bool> NEXT = () => {
    bool result = X_Pressed;
    if (result) {
-   ++phase;
-   Byte[] tmp = { 0 };
-   //serialPort.Write(tmp, 0, 1);
+    ++phase;
    }
    return(result);
-  };// NOTE: phase captured by reference
+  }; // NOTE: phase captured by reference
   if (false) {
   } else if (PHASE()) { // prep
    if (DISABLE_VR) {
@@ -246,18 +212,35 @@ int byte_for_C = 0;
     robot.transform.localPosition = (LeftRay.origin + (0.08f * LeftRay.direction));
    }
    if (NEXT()) {
-    
    }
   } else if (PHASE()) { // hot
    // FORNOW
    robot.transform.Translate(new Vector3(0, (0.001f * MagicZeroCenteredDeadBand(LeftThumb.y, 0.6f)), 0));
    //robot.transform.Rotate(0, (1.5f * MagicZeroCenteredDeadBand(LeftThumb.x, 0.4f)), 0);
-  
-  if (NEXT()) {
+    if (NEXT()) {
 
-   }
+    }
   } else if (PHASE()) { // live
     robot.transform.rotation = Quaternion.Euler(0.0f, robotRotation, 0.0f);
+    {
+      //pipe
+      uint BytesRead = 0;
+      uint BytesLeftThisMessage = 0;
+      while (PeekNamedPipe(pipe.SafePipeHandle, null, 0, ref BytesRead, ref TotalBytesAvail, ref BytesLeftThisMessage) && TotalBytesAvail >= 4) {  
+        byte[] buffer = new byte[4]; // float is 4 bytes
+        int bytesRead = pipe.Read(buffer, 0, 4);
+        ASSERT(bytesRead == 4);
+        float value = BitConverter.ToSingle(buffer, 0);
+        robotRotation = value * 360.0f;
+      }
+    }
+
+    byte[] bytesToWrite = new byte[12];
+    System.Buffer.BlockCopy(System.BitConverter.GetBytes(hand.transform.position.x - robot.transform.position.x), 0, bytesToWrite, 8, 4);
+    System.Buffer.BlockCopy(System.BitConverter.GetBytes(hand.transform.position.y - robot.transform.position.y), 0, bytesToWrite, 4, 4);
+    System.Buffer.BlockCopy(System.BitConverter.GetBytes(hand.transform.position.z - robot.transform.position.z), 0, bytesToWrite, 0, 4);
+    pipe.Write(bytesToWrite, 0, 12);
+    pipe.Flush();
    if (NEXT()) {
 
     initialized = false;
