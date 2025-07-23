@@ -55,7 +55,7 @@ public class Wiglet : MonoBehaviour {
   return(0.5f - 0.5f * Mathf.Cos(x));
  }
 
- private bool DISABLE_VR = true;
+ private bool DISABLE_VR = false;
  private OVRCameraRig OVR_cameraRig;
  private OVRManager OVR_manager;
  private OVRPassthroughLayer OVR_passthroughLayer;
@@ -95,9 +95,13 @@ public class Wiglet : MonoBehaviour {
 
  private GameObject hand;
  void FakeHand_Init() {
-  hand = GameObject.CreatePrimitive(PrimitiveType.Sphere); 
-  hand.name = "Hand";
-  hand.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
+  if (DISABLE_VR) {
+    hand = GameObject.CreatePrimitive(PrimitiveType.Sphere); 
+    hand.name = "Hand";
+    hand.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
+  } else {
+     hand = GameObject.Find("RightHandAnchor");
+  }
  }
 
 [SerializeField] private uint TotalBytesAvail;
