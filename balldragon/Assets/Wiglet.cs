@@ -124,7 +124,6 @@ int byte_for_C = 0;
   allObjects.FirstOrDefault(obj => obj.name == "Camera").SetActive(DISABLE_VR);
 
   OVR_Init();
-  // SerialPort_Init();
   Robot_Init();  
   Pipe_Init();
   FakeHand_Init();
@@ -209,9 +208,9 @@ int byte_for_C = 0;
   }
 
   byte[] bytesToWrite = new byte[12];
-  System.Buffer.BlockCopy(System.BitConverter.GetBytes(hand.transform.position.x), 0, bytesToWrite, 8, 4);
-  System.Buffer.BlockCopy(System.BitConverter.GetBytes(hand.transform.position.y), 0, bytesToWrite, 4, 4);
-  System.Buffer.BlockCopy(System.BitConverter.GetBytes(hand.transform.position.z), 0, bytesToWrite, 0, 4);
+  System.Buffer.BlockCopy(System.BitConverter.GetBytes(hand.transform.position.x - robot.transform.position.x), 0, bytesToWrite, 8, 4);
+  System.Buffer.BlockCopy(System.BitConverter.GetBytes(hand.transform.position.y - robot.transform.position.y), 0, bytesToWrite, 4, 4);
+  System.Buffer.BlockCopy(System.BitConverter.GetBytes(hand.transform.position.z - robot.transform.position.z), 0, bytesToWrite, 0, 4);
   pipe.Write(bytesToWrite, 0, 12);
   pipe.Flush();
 
