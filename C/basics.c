@@ -67,8 +67,6 @@ f32 wig_cos(f32 turns) {
     return cosf(turns * TAU);
 }
 
-
-
 f32 wig_atan2(f32 z, f32 x) {
     f32 angle_rad = atan2f(z, x);
     f32 turns = angle_rad / TAU;

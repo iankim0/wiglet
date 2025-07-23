@@ -6,11 +6,11 @@
 
 
 
-
 HANDLE teensyHandle;
 HANDLE unityHandle;
 bool unityIsConnected;
 f32 odrivePosition;
+//u64 timestamp;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -22,9 +22,8 @@ typedef struct {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-
 vec3 unity_read_current_virtual_hand_position() {
-    static vec3 result;
+    static vec3 result; // *
     while (pipe_available(unityHandle) >= 12) {
         pipe_read_n_bytes(unityHandle, 12, &result);
     }
@@ -38,7 +37,7 @@ void unity_write_target_virtual_angle(f32 target_virtual_angle) {
 ////////////////////////////////////////////////////////////////////////////////
 
 f32 teensy_read_current_physical_angle() {
-    static f32 result;
+    static f32 result; // *
     while (serial_available(teensyHandle) >= 4) {
         serial_read_n_bytes(teensyHandle, 4, &result);
     }
@@ -68,13 +67,13 @@ typedef struct {
 OptInput opt_read_input() {
     OptInput result = {0};
     result.current_virtual_hand_position = unity_read_current_virtual_hand_position();
-    result.current_physical_angle = teensy_read_current_physical_angle();
+    result.current_physical_angle = -1 * teensy_read_current_physical_angle();
     return(result);
 }
 
 void opt_write_output(OptOutput output, OptInput input) {
     unity_write_target_virtual_angle(output.target_virtual_angle);
-    teensy_write_target_physical_angle(output.target_physical_angle);
+    teensy_write_target_physical_angle(-1 * output.target_physical_angle);
 }
 
 // NOTE: all angles in turns
@@ -208,7 +207,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         SetWindowPos(hwnd, 0, 0, 0, 500, 500, 0);
         ShowWindow(hwnd, nCmdShow);
         UpdateWindow(hwnd);
-
     }
 
     char* token = strtok(lpCmdLine, " ");
@@ -223,8 +221,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     teensyHandle = serial_open("COM11", 115200);
     unityHandle = pipe_create("UnityPipe");
 
-
-    u64 timestamp = 0;
+    //u64 timestamp = 0;
     MSG msg;
     while (1) {
         while (!unityIsConnected) {
@@ -241,7 +238,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         opt_wrapper();
         InvalidateRect(hwnd, NULL, true);
 
-        
+        // Old code:
         // if (serial_available(teensyHandle) >= 4) {
         //     while (serial_available(teensyHandle) >= 4) { // FORNOW
         //         serial_read_n_bytes(teensyHandle, 4, &odrivePosition);
