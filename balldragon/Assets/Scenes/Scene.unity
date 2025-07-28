@@ -194,7 +194,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   robotRotation: 0
-  robotStick: {fileID: 2755808827590054409, guid: 19db960d67c70714f82bc7f35fc91f65, type: 3}
+  robotStick: {fileID: 8164078558771037576, guid: 61e7d928fd10e4b498aeb3cdfdd54be0, type: 3}
   TotalBytesAvail: 0
   phase: 0
 --- !u!4 &230430666

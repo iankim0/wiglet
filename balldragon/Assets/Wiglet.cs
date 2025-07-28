@@ -89,9 +89,7 @@ public class Wiglet : MonoBehaviour {
   GameObject stick = Instantiate(robotStick);
   stick.transform.SetParent(robot.transform);
   stick.name = "Stick";
-  stick.transform.rotation = Quaternion.Euler(90.0f, 90.0f, 0.0f);
   stick.transform.localPosition = new Vector3(0f, 0f, (0.07f / 2 - 0.015f));
-  stick.GetComponent<Renderer>().material.SetColor("_Color", new Color(1.0f, 0.5f, 0.0f));
  }
 
  private GameObject hand;
@@ -117,7 +115,6 @@ static extern bool PeekNamedPipe(SafePipeHandle handle, byte[] buffer, uint nBuf
 int byte_for_C = 0;
 
 
-
  bool initialized;
  private void Awake() {
   initialized = false;
@@ -131,13 +128,13 @@ int byte_for_C = 0;
   Pipe_Init();
   FakeHand_Init();
   if (DISABLE_VR) {
-    robot.transform.localPosition = new Vector3(0.0f, (0.5f * robot.transform.localScale.y), 0.0f);
+    robot.transform.localPosition = new Vector3(0.0f, (0.5f * 0.14f), 0.0f);
   }
 
   pinball = GameObject.CreatePrimitive(PrimitiveType.Sphere);
   pinball.name = "Pinball";
-  pinball.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
-  pinball.transform.localPosition = robot.transform.position + new Vector3(0.0f, 0.0f, 0.0f);
+  pinball.transform.localScale = new Vector3(0.15f, 0.15f, 0.15f);
+  pinball.transform.localPosition = robot.transform.position + new Vector3(0.2f, 0.0f, -0.3f);
   pinball.GetComponent<Renderer>().material.SetColor("_Color", new Color(1.0f, 0.5f, 0.0f));
  }  
 
@@ -239,19 +236,25 @@ int byte_for_C = 0;
       uint BytesRead = 0;
       uint BytesLeftThisMessage = 0;
       while (PeekNamedPipe(pipe.SafePipeHandle, null, 0, ref BytesRead, ref TotalBytesAvail, ref BytesLeftThisMessage) && TotalBytesAvail >= 4) {  
-        byte[] buffer = new byte[4]; // float is 4 bytes
-        int bytesRead = pipe.Read(buffer, 0, 4);
-        ASSERT(bytesRead == 4);
-        float value = BitConverter.ToSingle(buffer, 0);
-        robotRotation = value * 360.0f;
+        byte[] buffer = new byte[8]; // float is 4 bytes
+        int bytesRead = pipe.Read(buffer, 0, 8);
+        ASSERT(bytesRead == 8);
+        float rotationalValue = BitConverter.ToSingle(buffer, 0);
+        robotRotation = rotationalValue * 360.0f;
+        float ballPositionX = BitConverter.ToSingle(buffer, 4);
       }
+      
     }
+    //12 bytes: "hand" position
+    //4 bytes: ball position (x axis)
+    Debug.Log("current ball position: " + pinball.transform.position.x);
+    byte[] bytesToWrite = new byte[16];
+    System.Buffer.BlockCopy(System.BitConverter.GetBytes(pinball.transform.position.x), 0, bytesToWrite, 0, 4);
+    System.Buffer.BlockCopy(System.BitConverter.GetBytes(hand.transform.position.x - robot.transform.position.x), 0, bytesToWrite, 4, 4);
+    System.Buffer.BlockCopy(System.BitConverter.GetBytes(hand.transform.position.y - robot.transform.position.y), 0, bytesToWrite, 8, 4);
+    System.Buffer.BlockCopy(System.BitConverter.GetBytes(hand.transform.position.z - robot.transform.position.z), 0, bytesToWrite, 12, 4);
 
-    byte[] bytesToWrite = new byte[12];
-    System.Buffer.BlockCopy(System.BitConverter.GetBytes(hand.transform.position.x - robot.transform.position.x), 0, bytesToWrite, 8, 4);
-    System.Buffer.BlockCopy(System.BitConverter.GetBytes(hand.transform.position.y - robot.transform.position.y), 0, bytesToWrite, 4, 4);
-    System.Buffer.BlockCopy(System.BitConverter.GetBytes(hand.transform.position.z - robot.transform.position.z), 0, bytesToWrite, 0, 4);
-    pipe.Write(bytesToWrite, 0, 12);
+    pipe.Write(bytesToWrite, 0, 16);
     pipe.Flush();
    if (NEXT()) {
 

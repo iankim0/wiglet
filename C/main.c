@@ -20,24 +20,36 @@ typedef struct {
     f32 z;
 } vec3;
 
+typedef struct {
+    f32 angle;
+    f32 ball_position_x;
+} angleAndBall;
+
+typedef struct {
+    f32 ball_position_x;
+    vec3 hand_position; // x y z   ball
+
+} unityPositions;
+
 ////////////////////////////////////////////////////////////////////////////////
 
-vec3 unity_read_current_virtual_hand_position() {
-    static vec3 result; // *
-    while (pipe_available(unityHandle) >= 12) {
-        pipe_read_n_bytes(unityHandle, 12, &result);
+unityPositions unity_read_current_virtual_positions() {
+    static unityPositions result;
+    //reads hand and ball position
+    while (pipe_available(unityHandle) >= 16) {
+        pipe_read_n_bytes(unityHandle, 16, &result);
     }
     return(result);
 }
 
-void unity_write_target_virtual_angle(f32 target_virtual_angle) {
-    pipe_write_n_bytes(unityHandle, 4, &target_virtual_angle);
+void unity_write_target_virtual_data(angleAndBall targetUnityData) {
+    pipe_write_n_bytes(unityHandle, 8, &targetUnityData);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 f32 teensy_read_current_physical_angle() {
-    static f32 result; // *
+    static f32 result;
     while (serial_available(teensyHandle) >= 4) {
         serial_read_n_bytes(teensyHandle, 4, &result);
     }
@@ -53,30 +65,39 @@ void teensy_write_target_physical_angle(f32 target_physical_angle) {
 typedef struct {
     f32 current_physical_angle;
     vec3 current_virtual_hand_position;
+    f32 current_virtual_ball_position_x;
 } OptInput;
 
 typedef struct {
     f32 target_physical_angle;
     f32 target_virtual_angle;
+    f32 target_ball_position_x;
 } OptOutput;
 
 OptInput opt_read_input() {
     OptInput result = {0};
     f32 read_physical_angle = teensy_read_current_physical_angle();
-    result.current_virtual_hand_position = unity_read_current_virtual_hand_position();
+    unityPositions read_virtual_positions = unity_read_current_virtual_positions(); 
+    result.current_virtual_hand_position = read_virtual_positions.hand_position;
+    result.current_virtual_ball_position_x = read_virtual_positions.ball_position_x;
+    printf("ball position x from unity: %f\n", result.current_virtual_ball_position_x);
     result.current_physical_angle = -1 * read_physical_angle;
     odrivePosition = read_physical_angle;
     return(result);
 }
 
 void opt_write_output(OptOutput output, OptInput input) {
-    unity_write_target_virtual_angle(input.current_physical_angle);
+
+    angleAndBall unity_target_data = {0};
+    unity_target_data.angle = input.current_physical_angle;
+    unity_target_data.ball_position_x = input.current_virtual_ball_position_x;
+
+    unity_write_target_virtual_data(unity_target_data);
     teensy_write_target_physical_angle(-1 * output.target_physical_angle);
 }
 
 // NOTE: all angles in turns
 // map angle_01 from domain [0, 1] to be as close as possible to reference_angle
-
 f32 remap_angle(f32 angle_01, f32 reference_angle) {
     f32 floored = floor(reference_angle); 
     f32 remainder = reference_angle - floored; 
@@ -189,8 +210,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     teensyHandle = serial_open("COM11", 115200);
     unityHandle = pipe_create("UnityPipe");
 
-    unity_write_target_virtual_angle(0.0f);
-    teensy_write_target_physical_angle(0.0f);
+
+    angleAndBall zero_values = {0};
+    unity_write_target_virtual_data(zero_values);
+    teensy_write_target_physical_angle(zero_values.angle);
 
     u64 timestamp = 0;
     MSG msg;
@@ -214,35 +237,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         }
 
         opt_wrapper();
-
-        // Old code:
-        // if (serial_available(teensyHandle) >= 4) {
-        //     while (serial_available(teensyHandle) >= 4) { // FORNOW
-        //         serial_read_n_bytes(teensyHandle, 4, &odrivePosition);
-        //     }
-
-        //     u64 new_timestamp = wig_get_timestamp();
-        //     if ((new_timestamp - timestamp) > (1000U / 110U)) { // FORNOW 110
-        //         timestamp = new_timestamp;
-        //         if (unityIsConnected) {
-        //             pipe_write_n_bytes(unityHandle, 4, &odrivePosition);
-        //         }
-        //     }
-            
-        //     InvalidateRect(hwnd, NULL, true);
-        // }
-
-        // if (unityIsConnected) {
-        //     if (pipe_available(unityHandle)) {
-        //         u8 byte_from_Unity;
-        //         while (pipe_available(unityHandle)) {
-        //             //NOTE: input must be raw bit representation
-        //             pipe_read_byte(unityHandle, &byte_from_Unity);
-        //         }
-        //         // TODO: Purge???
-        //         pipe_write_n_bytes(teensyHandle, 1, & byte_from_Unity);
-        //     }
-        // }
 
     }
 
