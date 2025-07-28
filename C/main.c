@@ -1,16 +1,16 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include <math.h>
+#include <time.h>
 #include "basics.c"
 #include "serial.c"
 #include "pipe.c"
-
-
 
 HANDLE teensyHandle;
 HANDLE unityHandle;
 bool unityIsConnected;
 f32 odrivePosition;
-//u64 timestamp;
+
+u64 timestamp;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -62,8 +62,10 @@ typedef struct {
 
 OptInput opt_read_input() {
     OptInput result = {0};
+    f32 read_physical_angle = teensy_read_current_physical_angle();
     result.current_virtual_hand_position = unity_read_current_virtual_hand_position();
-    result.current_physical_angle = -1 * teensy_read_current_physical_angle();
+    result.current_physical_angle = -1 * read_physical_angle;
+    odrivePosition = read_physical_angle;
     return(result);
 }
 
@@ -97,7 +99,6 @@ f32 remap_angle(f32 angle_01, f32 reference_angle) {
     prev_angle_01 = angle_01;
     prev_reference_angle = reference_angle;
     prev_result = result;
-    odrivePosition = result;
     return result;
 }
 
@@ -191,9 +192,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     unity_write_target_virtual_angle(0.0f);
     teensy_write_target_physical_angle(0.0f);
 
-    //u64 timestamp = 0;
+    u64 timestamp = 0;
     MSG msg;
+    int count = 0;
     while (1) {
+        u64 new_timestamp = wig_get_timestamp();
+        if ((new_timestamp - timestamp) > (30)) {
+            timestamp = new_timestamp;
+            InvalidateRect(hwnd, NULL, true);
+        }
+
         while (!unityIsConnected) {
             unityIsConnected = pipe_attempt_to_connect(unityHandle);
             if (unityIsConnected) printf("[INFO] Connected to Unity via pipe.\n");
@@ -206,7 +214,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         }
 
         opt_wrapper();
-        InvalidateRect(hwnd, NULL, true);
 
         // Old code:
         // if (serial_available(teensyHandle) >= 4) {

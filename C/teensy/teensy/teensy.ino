@@ -25,6 +25,7 @@ Adafruit_seesaw ss;
 uint8_t encoder_position;
 float maxEncoderPos = 50;
 float minEncoderPos = -50;
+float torque;
 
 #undef LED_BUILTIN
 #define LED_BUILTIN 13
@@ -34,8 +35,8 @@ float inverseLerp(float l, float u, float pos) {
   return ((float)pos - l) / (u - l);
 }
 
-uint8_t lerp(int l, int u, float t) {
-  return (uint8_t)(((u - l) * t) + l);
+float lerp(float l, float u, float t) {
+  return (((u - l) * t) + l);
 }
 
 int MODULO(int a, int b) {
@@ -117,7 +118,6 @@ void onCanMessage(const CanMsg& msg) {
 }
 /////////////
 
-
 float current_position;
 float newAngle;
 char buffer[4];
@@ -134,14 +134,13 @@ void setup() {
     }
   }
 
+  ASSERT(ss.begin(SEESAW_ADDR));
+  ASSERT(((ss.getVersion() >> 16) & 0xFFFF)  == 4991);
+  ss.pinMode(SS_SWITCH, INPUT_PULLUP);
+  ss.setGPIOInterrupts((uint32_t)1 << SS_SWITCH, 1);
+  ss.enableEncoderInterrupt();
 
-//  ASSERT(ss.begin(SEESAW_ADDR));
-//  ASSERT(((ss.getVersion() >> 16) & 0xFFFF)  == 4991);
-//  ss.pinMode(SS_SWITCH, INPUT_PULLUP);
-//  ss.setGPIOInterrupts((uint32_t)1 << SS_SWITCH, 1);
-//  ss.enableEncoderInterrupt();
-
-  //ODrive:
+//  ODrive:
 
   odrv0.onFeedback(onFeedback, &odrv0_user_data);
   odrv0.onStatus(onHeartbeat, &odrv0_user_data);
@@ -169,9 +168,11 @@ void setup() {
     }
   }
 
+//posgain normally set to 20
   Serial.println("ODrive running!");
   odrv0.setPosition(0.0);
-  //current_position = 0.0;
+  odrv0.setPosGain(15.0f);
+ odrv0.setVelGains(0.167f, 1.0f);
 }
 
 unsigned long prev_refresh_timestamp;
@@ -181,7 +182,7 @@ void loop() {
   pumpEvents(can_intf);
 
   unsigned long _millis = millis();
-  unsigned long delta_frame = (_millis - prev_frame_timestamp);
+  //unsigned long delta_frame = (_millis - prev_frame_timestamp);
   prev_frame_timestamp = _millis;
   unsigned long delta_refresh = (_millis - prev_refresh_timestamp);
   if (delta_refresh > 1000 / 24) {
@@ -193,32 +194,32 @@ void loop() {
     char date_no_year[32];
     strcpy(date_no_year, __DATE__);
     date_no_year[strlen(date_no_year) - 4] = '\0';
-    int fps = (int) (1000 / delta_frame);    
-    display.printf("%s\n%s\n%.2f\n%f ", date_no_year, __TIME__, current_position, newAngle);
+    //int fps = (int) (1000 / delta_frame);    
+    display.printf("%s\n%s\n%.2f\n%f ", date_no_year, __TIME__, current_position, torque);
     display.display();
   }
   
-  
   Serial.write((byte *) &current_position, 4);
- // Serial.write(feedback.Pos_Estimate);
 
   // // receive
   if (Serial.available() >= 4) {
     Serial.readBytes(buffer, 4);  
     memcpy(&newAngle, buffer, 4);   
     odrv0.setPosition(newAngle);
-    current_position = odrv0_user_data.last_feedback.Pos_Estimate;
     Serial_clear();
     LED_cooldown_timer = 100; 
   }
   
+  current_position = odrv0_user_data.last_feedback.Pos_Estimate;
+  
   // // send
-  //uint8_t new_position = MODULO(ss.getEncoderPosition(), 24);
+  uint8_t new_position = MODULO(ss.getEncoderPosition(), 24);
 
-//  if (encoder_position != new_position) {
-//    Serial.write(new_position);         // display new position
-//    encoder_position = new_position;    // and save for next round
-//  }
+  if (encoder_position != new_position) {
+    float t = inverseLerp(0.0f, 23.0f, (float)encoder_position);
+    torque = lerp(0.0f, 0.025f, t);
+    encoder_position = new_position;    // and save for next round
+  }
 
   // updates
   if (LED_cooldown_timer > 0) {

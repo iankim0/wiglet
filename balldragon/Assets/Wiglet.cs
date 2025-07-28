@@ -3,7 +3,6 @@
 Enter Play Mode Settings: In Unity's editor settings, you can disable domain reloading when entering Play mode in the editor settings. This can dramatically speed up entering Play mode. 
 Considerations: Disabling domain reloading means you'll need to manually reset your game state if needed, as Unity won't do it automatically. You'll also need to design your code to handle static variables and other state-related issues that arise from disabling the reload. 
 */
-     
 
 using UnityEngine;
 using UnityEngine.Diagnostics;
@@ -22,6 +21,8 @@ using Microsoft.Win32.SafeHandles;
 public class Wiglet : MonoBehaviour {
 
  [SerializeField] private float robotRotation;
+
+ public GameObject robotStick;
  
  void ASSERT(bool condition) {
   if (!condition) {
@@ -53,8 +54,9 @@ public class Wiglet : MonoBehaviour {
   return(0.5f - 0.5f * Mathf.Cos(x));
  }
 
- private bool DISABLE_VR = false;
+ private bool DISABLE_VR = true;
  private OVRCameraRig OVR_cameraRig;
+
  private OVRManager OVR_manager;
  private OVRPassthroughLayer OVR_passthroughLayer;
  void OVR_Init() {
@@ -80,13 +82,15 @@ public class Wiglet : MonoBehaviour {
 
  private GameObject robot;
  private GameObject stick;
+ private GameObject pinball;
+
  void Robot_Init() {
   robot = new GameObject("Robot");
-  stick = GameObject.CreatePrimitive(PrimitiveType.Cube);
+  GameObject stick = Instantiate(robotStick);
   stick.transform.SetParent(robot.transform);
   stick.name = "Stick";
-  stick.transform.localScale = new Vector3(0.025f, 0.014f, 0.07f);
-  stick.transform.localPosition = new Vector3(0f, 0f, (0.07f / 2 - 0.01f));
+  stick.transform.rotation = Quaternion.Euler(90.0f, 90.0f, 0.0f);
+  stick.transform.localPosition = new Vector3(0f, 0f, (0.07f / 2 - 0.015f));
   stick.GetComponent<Renderer>().material.SetColor("_Color", new Color(1.0f, 0.5f, 0.0f));
  }
 
@@ -112,6 +116,8 @@ void Pipe_Init() {
 static extern bool PeekNamedPipe(SafePipeHandle handle, byte[] buffer, uint nBufferSize, ref uint bytesRead, ref uint bytesAvail, ref uint bytesLeft);
 int byte_for_C = 0;
 
+
+
  bool initialized;
  private void Awake() {
   initialized = false;
@@ -124,8 +130,16 @@ int byte_for_C = 0;
   Robot_Init();  
   Pipe_Init();
   FakeHand_Init();
+  if (DISABLE_VR) {
+    robot.transform.localPosition = new Vector3(0.0f, (0.5f * robot.transform.localScale.y), 0.0f);
+  }
 
- }
+  pinball = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+  pinball.name = "Pinball";
+  pinball.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
+  pinball.transform.localPosition = robot.transform.position + new Vector3(0.0f, 0.0f, 0.0f);
+  pinball.GetComponent<Renderer>().material.SetColor("_Color", new Color(1.0f, 0.5f, 0.0f));
+ }  
 
  [SerializeField] int phase;
  public void Update() {
@@ -206,10 +220,8 @@ int byte_for_C = 0;
   }; // NOTE: phase captured by reference
   if (false) {
   } else if (PHASE()) { // prep
-   if (DISABLE_VR) {
-    robot.transform.localPosition = new Vector3(0.0f, (0.5f * robot.transform.localScale.y), 0.0f);
-   } else {
-    robot.transform.localPosition = (LeftRay.origin + (0.08f * LeftRay.direction));
+   if (!DISABLE_VR) {
+      robot.transform.localPosition = (LeftRay.origin + (0.08f * LeftRay.direction));
    }
    if (NEXT()) {
    }
