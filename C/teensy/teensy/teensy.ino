@@ -169,8 +169,7 @@ void setup() {
   }
 
 //posgain normally set to 20
-  Serial.println("ODrive running!");
-  odrv0.setPosition(0.0);
+  Serial.println("ODrive running!"); 
   odrv0.setPosGain(15.0f);
  odrv0.setVelGains(0.167f, 1.0f);
 }
@@ -180,7 +179,7 @@ unsigned long prev_frame_timestamp;
 void loop() {
   //ODrive:
   pumpEvents(can_intf);
-
+            
   unsigned long _millis = millis();
   //unsigned long delta_frame = (_millis - prev_frame_timestamp);
   prev_frame_timestamp = _millis;
