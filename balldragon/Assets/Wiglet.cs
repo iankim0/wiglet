@@ -211,7 +211,7 @@ public class Wiglet : MonoBehaviour {
       if (Input.GetKey(KeyCode.DownArrow)) {
         dir -= new Vector3(0f, 0f, 2);
       }
-      pinball.transform.position += (0.001f * dir);
+      pinball.transform.position += (0.001f * dir); // TODO: Make this scaling some global or a function call
     }
 
     bool reset = (!initialized || LeftThumbstick_Pressed);

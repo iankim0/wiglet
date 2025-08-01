@@ -98,16 +98,15 @@ typedef struct
 OptInput opt_read_input()
 {
     OptInput result = {0};
-    f32 read_physical_angle = teensy_read_current_physical_angle();
     unityPositions read_virtual_positions = unity_read_current_virtual_positions();
     result.current_virtual_hand_position = read_virtual_positions.hand_position;
     result.current_virtual_ball_position_x = read_virtual_positions.ball_position_x;
     result.current_virtual_ball_position_z = read_virtual_positions.ball_position_z;
 
-    result.current_physical_angle = read_physical_angle; // was -1
-    simAngle = turns_to_angles(read_physical_angle);
+    result.current_physical_angle = teensy_read_current_physical_angle(); // was -1
+    simAngle = turns_to_angles(-1 * result.current_physical_angle);
     simPinball.center.x = global_origin.x + unity_to_c_scale(read_virtual_positions.ball_position_x);
-    simPinball.center.y = global_origin.y + unity_to_c_scale(read_virtual_positions.ball_position_z);
+    simPinball.center.y = global_origin.y + unity_to_c_scale(-1 * read_virtual_positions.ball_position_z); // simulation's Y-Axis is inverted
 
     return (result);
 }
