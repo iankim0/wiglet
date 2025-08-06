@@ -51,7 +51,7 @@ typedef struct {
 typedef struct {
     vec2 center;
     f32 radius;
-    vec2 velocity;
+    f32 velocity;
 } pinball;
 
 // FORNOW: Sleep

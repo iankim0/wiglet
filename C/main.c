@@ -141,13 +141,13 @@ OptOutput opt_optimize()
 void update_sim(OptInput input) {
     simAngle = turns_to_angles(-1 * input.current_physical_angle);
 
-    
+
 
     bool is_colliding = rotated_circle_rectangle_collides(simAngle, simPinball.center, simPinball.radius, simStick.p2, simStick.p4);
 
     bool is_wall_colliding = rotated_circle_rectangle_collides(0.0f, simPinball.center, simPinball.radius, simWall.p2, simWall.p4);
     
-    if (is_colliding && simPinball.velocity.y > 0) {
+    if (is_colliding && simPinball.velocity > 0) {
         impulseActivated = true;
         impulseCounter = 0;
 
