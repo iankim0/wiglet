@@ -170,8 +170,7 @@ void setup() {
 
 //posgain normally set to 20
   Serial.println("ODrive running!"); 
-  odrv0.setPosGain(15.0f);
- odrv0.setVelGains(0.167f, 1.0f);
+  odrv0.setPosGain(2.0f);
 }
 
 unsigned long prev_refresh_timestamp;

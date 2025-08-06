@@ -1,1 +1,1 @@
-cls & del /F /Q main.exe & cl /W4 /WX main.c & main.exe %1
+cls & del /F /Q main.exe & cl /W4 /WX /wd4201 main.c & main.exe %1

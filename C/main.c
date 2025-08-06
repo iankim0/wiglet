@@ -5,48 +5,55 @@
 #include "serial.c"
 #include "pipe.c"
 
+#define WINDOW_WIDTH 700
+#define WINDOW_HEIGHT 1000
+#define ORIGIN_X WINDOW_WIDTH / 2
+#define ORIGIN_Y WINDOW_HEIGHT * 2 / 3
+
 HANDLE teensyHandle;
 HANDLE unityHandle;
 bool unityIsConnected;
+bool DEACTIVATE_UNITY;
+bool impulseActivated;
+int impulseCounter;
 
 //globals for physics things in c (units in C SCALE)
+
+vec2 global_origin = {ORIGIN_X, ORIGIN_Y};
+f32 prevAngle; // in radians
+//TODO simAngle name is ambiguous--since it's also physical angle
 f32 simAngle;
 rect simStick;
-rect simWall;
+rect simWall = {{ORIGIN_X + 60, ORIGIN_Y - 10 - 400}, {ORIGIN_X, ORIGIN_Y - 10 - 400}, {ORIGIN_X, ORIGIN_Y + 10 - 400}, {ORIGIN_X + 60, ORIGIN_Y + 10 - 400}};
 
-//TODO global origin no work for simpinball i'm crashing out
-vec2 global_origin = {250, 250};
-pinball simPinball = {{250, 250}, 10, 10.0f / 1000.0f};
+pinball simPinball = {{ORIGIN_X + 30, ORIGIN_Y - 300}, 10.0f, 0.005f};
 
-int unityNumFloatsToRead = 5;
-int unityNumFloatsToWrite = 3;
 int numBytesInFloat = 4;
 
-u64 timestamp;
-
+//TODO FIX STRUCT VS. GLOBAL ISSUE (excess steps in reading/writing)
 ////////////////////////////////////////////////////////////////////////////////
+int unityNumFloatsToRead = 3;
+int unityNumFloatsToWrite = 3;
 
 typedef struct
 {
     f32 angle;
     f32 ball_position_x;
     f32 ball_position_z;
-} angleAndBall;
+} dataToUnity;
 
 typedef struct
 {
-    f32 ball_position_x;
-    f32 ball_position_z;
     vec3 hand_position;
 
-} unityPositions;
+} dataFromUnity;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-unityPositions unity_read_current_virtual_positions()
+dataFromUnity unity_read_current_virtual_positions()
 {
-    static unityPositions result;
-    // reads hand and ball position
+    static dataFromUnity result;
+
     while (pipe_available(unityHandle) >= unityNumFloatsToRead * numBytesInFloat)
     {
         pipe_read_n_bytes(unityHandle, unityNumFloatsToRead * numBytesInFloat, &result);
@@ -54,7 +61,7 @@ unityPositions unity_read_current_virtual_positions()
     return (result);
 }
 
-void unity_write_target_virtual_data(angleAndBall targetUnityData)
+void unity_write_target_virtual_data(dataToUnity targetUnityData)
 {
     pipe_write_n_bytes(unityHandle, unityNumFloatsToWrite * numBytesInFloat, &targetUnityData);
 }
@@ -82,85 +89,95 @@ typedef struct
 {
     f32 current_physical_angle;
     vec3 current_virtual_hand_position;
-    f32 current_virtual_ball_position_x;
-    f32 current_virtual_ball_position_z;
 } OptInput;
 
 typedef struct
 {
     f32 target_physical_angle;
-    f32 target_virtual_angle;
     f32 target_ball_position_x;
     f32 target_ball_position_z;
 } OptOutput;
 
-// also sets globals
 OptInput opt_read_input()
 {
     OptInput result = {0};
-    unityPositions read_virtual_positions = unity_read_current_virtual_positions();
+
+    dataFromUnity read_virtual_positions = {0};
+    if (!DEACTIVATE_UNITY) {
+        unity_read_current_virtual_positions();
+    }
+
+    result.current_physical_angle = teensy_read_current_physical_angle();
     result.current_virtual_hand_position = read_virtual_positions.hand_position;
-    result.current_virtual_ball_position_x = read_virtual_positions.ball_position_x;
-    result.current_virtual_ball_position_z = read_virtual_positions.ball_position_z;
-
-    result.current_physical_angle = teensy_read_current_physical_angle(); // was -1
-    simAngle = turns_to_angles(-1 * result.current_physical_angle);
-    simPinball.center.x = global_origin.x + unity_to_c_scale(read_virtual_positions.ball_position_x);
-    simPinball.center.y = global_origin.y + unity_to_c_scale(-1 * read_virtual_positions.ball_position_z); // simulation's Y-Axis is inverted
-
     return (result);
 }
 
 void opt_write_output(OptOutput output, OptInput input)
 {
-    angleAndBall unity_target_data = {0};
+    dataToUnity unity_target_data = {0};
     unity_target_data.angle = input.current_physical_angle;
-    unity_target_data.ball_position_x = simPinball.center.x;
-    unity_target_data.ball_position_z = simPinball.center.y;
+    unity_target_data.ball_position_x = output.target_ball_position_x;
+    unity_target_data.ball_position_z = output.target_ball_position_z;
     unity_write_target_virtual_data(unity_target_data);
     teensy_write_target_physical_angle(output.target_physical_angle); // was -1
 }
 
-// NOTE: all angles in turns
-// map angle_01 from domain [0, 1] to be as close as possible to reference_angle
-f32 remap_angle(f32 angle_01, f32 reference_angle)
-{
-    f32 floored = floor(reference_angle);
-    f32 remainder = reference_angle - floored;
-    f32 delta = angle_01 - remainder;
-    if (delta > 0.5f)
-    {
-        angle_01 -= 1.0f;
-    }
-    else if (delta < -0.5f)
-    {
-        angle_01 += 1.0f;
-    }
-
-    f32 result = floored + angle_01;
-    static f32 prev_angle_01;
-    static f32 prev_reference_angle;
-    static f32 prev_result;
-    prev_angle_01 = angle_01;
-    prev_reference_angle = reference_angle;
-    prev_result = result;
-    return result;
-}
-
-OptOutput opt_optimize(OptInput input)
+OptOutput opt_optimize()
 {
     OptOutput result = {0};
-    f32 angle_01 = wig_atan2(input.current_virtual_hand_position.z, input.current_virtual_hand_position.x);
-    f32 angle = remap_angle(angle_01, input.current_physical_angle);
-    result.target_virtual_angle = angle;
-    result.target_physical_angle = angle;
+
+    // f32 angle_01 = wig_atan2(input.current_virtual_hand_position.z, input.current_virtual_hand_position.x);
+    // f32 angle = remap_angle(angle_01, input.current_physical_angle);
+
+    f32 tmp = impulseCounter ? turns_to_angles(-0.05f) : 0;
+
+    result.target_physical_angle = angles_to_turns(simAngle + tmp);
+    result.target_ball_position_x = c_to_unity_scale(simPinball.center.x - global_origin.x);
+    result.target_ball_position_z = -1 * c_to_unity_scale(simPinball.center.y - global_origin.y);
     return (result);
 }
+
+//updates c globals
+void update_sim(OptInput input) {
+    simAngle = turns_to_angles(-1 * input.current_physical_angle);
+
+    
+
+    bool is_colliding = rotated_circle_rectangle_collides(simAngle, simPinball.center, simPinball.radius, simStick.p2, simStick.p4);
+
+    bool is_wall_colliding = rotated_circle_rectangle_collides(0.0f, simPinball.center, simPinball.radius, simWall.p2, simWall.p4);
+    
+    if (is_colliding && simPinball.velocity.y > 0) {
+        impulseActivated = true;
+        impulseCounter = 0;
+
+        f32 angular_velocity = simAngle - prevAngle;
+
+        //0.9 for damping, add velocity of stick to ball
+        simPinball.velocity = (-1 * simPinball.velocity * 0.9f) - (angular_velocity * ((simStick.p1.x - simStick.p2.x) / 2.0f)) / 1000.0f;
+
+    } else if (is_wall_colliding && simPinball.velocity < 0) {
+        //0.5 for damping
+       simPinball.velocity *= -1 * 0.5;
+    } else if (simPinball.center.y > global_origin.y + 100) {
+        simPinball.velocity = 0;
+    }
+
+    if (impulseActivated) {
+        if (impulseCounter++ == 5000) {
+            impulseActivated = false;
+            impulseCounter = 0;
+        }
+    }
+
+    simPinball.center.y += simPinball.velocity;
+} 
 
 void opt_wrapper() 
 {
     OptInput input = opt_read_input();
-    OptOutput output = opt_optimize(input);
+    update_sim(input);                          //calculates c globals
+    OptOutput output = opt_optimize();          //sets all values (preparing to send)
     opt_write_output(output, input);
 }
 
@@ -185,36 +202,29 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         {
             serial_write_byte(teensyHandle, 'A');
         }
-        else if (wParam == 'U' && unityIsConnected)
+        else if (wParam == 'R')
+        {
+
+        }
+        else if (!DEACTIVATE_UNITY && wParam == 'U' && unityIsConnected)
         {
             serial_write_byte(unityHandle, 'A');
         }
     }
     else if (msg == WM_PAINT)
     {
-        /*
 
-        p_1----------p_2
-         |            |
-         |            |
-        p_4----------p_3
-
-        */
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
         HPEN pen = CreatePen(PS_SOLID, 3, RGB(255, 128, 0));
         SelectObject(hdc, pen);
 
         //draw stick
-        MoveToEx(hdc, simStick.p1.x, simStick.p1.y, NULL);
-        LineTo(hdc, simStick.p2.x, simStick.p2.y);
-        LineTo(hdc, simStick.p3.x, simStick.p3.y);
-        LineTo(hdc, simStick.p4.x, simStick.p4.y);
-        LineTo(hdc, simStick.p1.x, simStick.p1.y);
+        draw_rect(simStick, hdc);
+        draw_rect(simWall, hdc);
 
         //draw circle
-        MoveToEx(hdc, simPinball.center.x, simPinball.center.y, NULL);
-        Ellipse(hdc, simPinball.center.x - simPinball.radius, simPinball.center.y - simPinball.radius, simPinball.center.x + simPinball.radius, simPinball.center.y + simPinball.radius);
+        Ellipse(hdc, (int) (simPinball.center.x - simPinball.radius), (int) (simPinball.center.y - simPinball.radius), (int) (simPinball.center.x + simPinball.radius), (int) (simPinball.center.y + simPinball.radius));
 
         DeleteObject(pen);
         EndPaint(hwnd, &ps);
@@ -229,6 +239,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     }
     return (result);
 }
+
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
@@ -247,12 +258,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         RegisterClass(&wc);
 
         hwnd = CreateWindow("Window", "Window", WS_OVERLAPPEDWINDOW,
-                            CW_USEDEFAULT, CW_USEDEFAULT, 800, 600,
+                            CW_USEDEFAULT, CW_USEDEFAULT, 0, 0,
                             NULL, NULL, hInstance, NULL);
 
-        SetWindowPos(hwnd, 0, 0, 0, 500, 500, 0);
+        SetWindowPos(hwnd, 0, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, 0);
         ShowWindow(hwnd, nCmdShow);
-        UpdateWindow(hwnd);
+        UpdateWindow(hwnd); 
     }
 
     char *token = strtok(lpCmdLine, " ");
@@ -260,8 +271,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     {
         if (strcmp(token, "--no-unity") == 0)
         {
-            unityIsConnected = false;
-            printf("Unity Deactivated");
+            DEACTIVATE_UNITY = true;
+            printf("DEACTIVATE_UNITY");
         }
         token = strtok(NULL, " ");
     }
@@ -269,49 +280,29 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     teensyHandle = serial_open("COM11", 115200);
     unityHandle = pipe_create("UnityPipe");
 
-    angleAndBall zero_values = {0};
-    unity_write_target_virtual_data(zero_values);
-    teensy_write_target_physical_angle(zero_values.angle);
-
     u64 timestamp = 0;
     MSG msg;
-    int count = 0;
 
     while (1)
     {
         u64 new_timestamp = wig_get_timestamp();
-
         if ((new_timestamp - timestamp) > (30))
-        {
-            //update stick position
-            simStick.p1 = rotate_coordinate(global_origin, (vec2){-10, -10}, simAngle);
-            simStick.p2 = rotate_coordinate(global_origin, (vec2){60, -10}, simAngle);
-            simStick.p3 = rotate_coordinate(global_origin, (vec2){60, 10}, simAngle);
-            simStick.p4 = rotate_coordinate(global_origin, (vec2){-10, 10}, simAngle);
-            //simStick = {p1, p2, p3, p4, simAngle};
-
-            // TODO change collision function to calculate min and max, so you can pass any two points of the rect
-            bool is_colliding = circle_rectangle_collides(rotate_coordinate(global_origin, simPinball.center, simAngle),
-                                                        simPinball.radius,
-                                                        rotate_coordinate(global_origin, simStick.p4, simAngle),
-                                                        rotate_coordinate(global_origin, simStick.p2, simAngle));
-            if (is_colliding) {
-                simPinball.velocity *= -1;
-                printf("collision at: %lld\n", new_timestamp);
-            }
-            
-            //update ball position
-            simPinball.center.y += 30 * simPinball.velocity;
-
+        {     
             timestamp = new_timestamp;
             InvalidateRect(hwnd, NULL, true);
+            prevAngle = simAngle;
+
+            //gravity
+            simPinball.velocity += 10.0f / 5000.0f;
         }
 
-        while (!unityIsConnected)
-        {
-            unityIsConnected = pipe_attempt_to_connect(unityHandle);
-            if (unityIsConnected)
-                printf("[INFO] Connected to Unity via pipe.\n");
+        if (!DEACTIVATE_UNITY) {
+            while (!unityIsConnected)
+            {
+                unityIsConnected = pipe_attempt_to_connect(unityHandle);
+                if (unityIsConnected)
+                    printf("[INFO] Connected to Unity via pipe.\n");
+            }
         }
 
         while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
@@ -321,6 +312,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
+
+        //update stick position
+        simStick.p1 = rotate_about(global_origin, (vec2){global_origin.x - 10,global_origin.y - 10}, simAngle);
+        simStick.p2 = rotate_about(global_origin, (vec2){global_origin.x + 60, global_origin.y - 10}, simAngle);
+        simStick.p3 = rotate_about(global_origin, (vec2){global_origin.x + 60,global_origin.y + 10}, simAngle);
+        simStick.p4 = rotate_about(global_origin, (vec2){global_origin.x - 10, global_origin.y + 10}, simAngle);
 
         opt_wrapper();
     }

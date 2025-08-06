@@ -18,15 +18,13 @@ typedef float f32;
 #include <stdbool.h>
 #include <stdlib.h>
 
-typedef struct
-{
+typedef struct {
     f32 x;
     f32 y;
     f32 z;
 } vec3;
 
-typedef union
-{
+typedef union {
     struct {
         f32 x;
         f32 y;
@@ -36,35 +34,25 @@ typedef union
 
 /*
 
-p_1----------p_2
+p_2----------p_1
  |            |
  |            |
-p_4----------p_3
+p_3----------p_4
 
 */
-typedef struct{
+typedef struct {
     vec2 p1;
     vec2 p2;
     vec2 p3;
     vec2 p4;
 
-    f32 angle;
 } rect;
 
 typedef struct {
     vec2 center;
-    int radius;
-    f32 velocity;
+    f32 radius;
+    vec2 velocity;
 } pinball;
-
-// typedef union
-// {
-//     struct {
-//         f32 speed;
-//         f32 angle;
-//     };
-//     f32 _[2];
-// } velocity;
 
 // FORNOW: Sleep
 #define assert(condition) \
@@ -99,6 +87,14 @@ float lerp(float l, float u, float t) {
   return (((u - l) * t) + l);
 }
 
+void draw_rect(rect rectangle, HDC hdc) {
+    MoveToEx(hdc, (int) rectangle.p1.x, (int) rectangle.p1.y, NULL);
+    LineTo(hdc, (int) rectangle.p2.x, (int) rectangle.p2.y);
+    LineTo(hdc, (int) rectangle.p3.x, (int) rectangle.p3.y);
+    LineTo(hdc, (int) rectangle.p4.x, (int) rectangle.p4.y);
+    LineTo(hdc, (int) rectangle.p1.x, (int) rectangle.p1.y);
+}
+
 float unity_to_c_scale(float n) {
     return n * 100;
 }
@@ -111,7 +107,15 @@ float turns_to_angles(float n) {
     return n * 6.283f;
 }
 
+float angles_to_turns(float n) {
+    return n / 6.283f;
+}
+
 bool circle_rectangle_collides(vec2 c, float radius, vec2 min, vec2 max) {
+    for (int d = 0; d < 2; ++d) {
+        assert(min._[d] <= max._[d]);
+    }
+
     float test; {
         test = 0.0f;
         for (int d = 0; d < 2; ++d) {
@@ -125,13 +129,69 @@ bool circle_rectangle_collides(vec2 c, float radius, vec2 min, vec2 max) {
         }
     }
     float squared_radius = (radius * radius);
-    return(test < squared_radius);
+    return (test < squared_radius);
 }
 
-vec2 rotate_coordinate(vec2 origin, vec2 point, f32 angle) {
-    vec2 result = {0};
-    result.x = origin.x + point.x * cosf(angle) - point.y * sinf(angle);
-    result.y = origin.y + point.x * sinf(angle) + point.y * cosf(angle);
+
+
+vec2 rotate(vec2 point, f32 angle) {
+    f32 c = cosf(angle);
+    f32 s = sinf(angle);
+    vec2 result;
+    result.x = point.x * c - point.y * s;
+    result.y = point.x * s + point.y * c;
+    return result;
+}
+
+vec2 rotate_about(vec2 origin, vec2 point, f32 angle) {
+    f32 c = cosf(angle);
+    f32 s = sinf(angle);
+    vec2 q = { point.x - origin.x, point.y - origin.y };
+    vec2 result;
+    result.x = origin.x + q.x * c - q.y * s;
+    result.y = origin.y + q.x * s + q.y * c;
+    return result;
+}
+
+bool rotated_circle_rectangle_collides(f32 angle, vec2 c, f32 radius, vec2 min, vec2 max) {
+    c = rotate(c, -angle);
+    min = rotate(min, -angle);
+    max = rotate(max, -angle);
+
+    for (int d = 0; d < 2; d++) {
+        if (max._[d] < min._[d]) {
+            f32 tmp = min._[d];
+            min._[d] = max._[d];
+            max._[d] = tmp;
+        }
+    }
+
+    return circle_rectangle_collides(c, radius, min, max);
+}
+
+// NOTE: all angles in turns
+// map angle_01 from domain [0, 1] to be as close as possible to reference_angle
+f32 remap_angle(f32 angle_01, f32 reference_angle)
+{
+    f32 floored = floorf(reference_angle);
+    f32 remainder = reference_angle - floored;
+    f32 delta = angle_01 - remainder;
+    if (delta > 0.5f)
+    {
+        angle_01 -= 1.0f;
+    }
+    else if (delta < -0.5f)
+    {
+        angle_01 += 1.0f;
+    }
+
+    f32 result = floored + angle_01;
+    static f32 prev_angle_01;
+    static f32 prev_reference_angle;
+    static f32 prev_result;
+    prev_angle_01 = angle_01;
+    prev_reference_angle = reference_angle;
+    prev_result = result;
     return result;
 }
 /*
@@ -147,7 +207,7 @@ u64 wig_get_timestamp() {
     return ((u64) (ul.QuadPart - 116444736000000000ULL)) / 10000;
 }
 
-#define TAU 6.28
+#define TAU 6.28f
 f32 wig_sin(f32 turns) {
     return sinf(turns * TAU);
 }
